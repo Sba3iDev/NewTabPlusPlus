@@ -14,14 +14,14 @@ const DEFAULT_SETTINGS = {
 };
 const DEFAULT_SHORTCUTS = [
     {
-        id: "youtube",
-        title: "YouTube",
-        url: "https://youtube.com",
+        id: generateShortcutId(),
+        title: "Google",
+        url: "https://google.com",
     },
     {
-        id: "github",
-        title: "GitHub",
-        url: "https://github.com",
+        id: generateShortcutId(),
+        title: "YouTube",
+        url: "https://youtube.com",
     },
 ];
 

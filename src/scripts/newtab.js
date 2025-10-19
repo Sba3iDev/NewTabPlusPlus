@@ -1,155 +1,551 @@
-const MAX_SLOTS = 20;
-const DEFAULT_VISIBLE_SLOTS = 10;
+const STORAGE_KEYS = {
+    SETTINGS: "settings",
+    SHORTCUTS: "shortcuts",
+    VERSION: "version",
+};
+const CURRENT_VERSION = "1.0.0";
+const MAX_SHORTCUTS = 20;
+const DEFAULT_SETTINGS = {
+    theme: "system",
+    columns: 4,
+    showClock: true,
+    showSearch: true,
+    showWeather: false,
+};
+const DEFAULT_SHORTCUTS = [
+    {
+        id: "youtube",
+        title: "YouTube",
+        url: "https://youtube.com",
+    },
+    {
+        id: "github",
+        title: "GitHub",
+        url: "https://github.com",
+    },
+];
 
-const el = {
-    shortcuts: document.getElementById("shortcuts"),
-    openSettings: document.getElementById("open-settings"),
-    toggleShortcuts: document.getElementById("toggle-shortcuts"),
-    modal: document.getElementById("settings-modal"),
-    slots: document.getElementById("slots"),
-    save: document.getElementById("save"),
-    cancel: document.getElementById("cancel"),
-    reset: document.getElementById("reset"),
+const STORAGE_LIMITS = {
+    QUOTA_BYTES: 102400,
+    QUOTA_BYTES_PER_ITEM: 8192,
+    LOCAL_STORAGE_KEY: "newtab_data",
 };
 
-function getFavicon(url) {
+function getStorageSize(data) {
+    return new TextEncoder().encode(JSON.stringify(data)).length;
+}
+
+async function safeSyncStorage(key, value) {
+    const payload = { [key]: value };
+    const size = getStorageSize(payload);
+    if (size > STORAGE_LIMITS.QUOTA_BYTES_PER_ITEM) {
+        showErrorModal("Data size exceeds Chrome Sync storage limits. Falling back to local storage.");
+        localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(payload));
+        return;
+    }
     try {
-        const host = new URL(url).hostname;
-        return `https://www.google.com/s2/favicons?sz=64&domain=${host}`;
-    } catch {
-        return "icons/default32.png";
+        await chrome.storage.sync.set(payload);
+    } catch (error) {
+        if (error.message?.includes("QUOTA")) {
+            showErrorModal("Chrome Sync storage quota exceeded. Falling back to local storage.");
+            localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(payload));
+        } else {
+            throw error;
+        }
     }
 }
 
-function parseInput(value) {
-    if (!value) return null;
-    const [urlPart, titlePart] = value.split("|").map((v) => v.trim());
+function getFaviconUrl(url) {
     try {
-        const url = new URL(urlPart);
-        if (!url.protocol.startsWith("http")) return null;
-        return { url: urlPart, title: titlePart || "" };
-    } catch {
+        const domain = new URL(url).hostname;
+        return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+    } catch (e) {
         return null;
     }
 }
 
-function loadShortcuts() {
-    return new Promise((resolve) => {
-        chrome.storage.sync.get(
-            {
-                shortcuts: Array(MAX_SLOTS).fill(null),
-                showAllShortcuts: false,
-            },
-            (res) => {
-                resolve({
-                    shortcuts: res.shortcuts,
-                    showAllShortcuts: res.showAllShortcuts,
-                });
-            }
-        );
-    });
+function generateShortcutId() {
+    return crypto.randomUUID();
 }
 
-function saveShortcuts(shortcuts) {
-    return new Promise((resolve) => {
-        chrome.storage.sync.set({ shortcuts }, resolve);
-    });
+function getInitialCharacter(text) {
+    if (typeof text !== "string" || !text.trim()) {
+        return "?";
+    }
+    return text.trim()[0].toUpperCase();
 }
 
-function saveShowAllShortcuts(showAllShortcuts) {
-    return new Promise((resolve) => {
-        chrome.storage.sync.set({ showAllShortcuts }, resolve);
-    });
+function createFallbackIconSvg(char) {
+    return `data:image/svg+xml,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
+    )}`;
 }
 
-async function render() {
-    const { shortcuts, showAllShortcuts } = await loadShortcuts();
-    el.shortcuts.innerHTML = "";
-    el.shortcuts.className = `grid ${showAllShortcuts ? "grid-20" : "grid-10"}`;
-    el.toggleShortcuts.textContent = showAllShortcuts ? "Show Less" : "Show More";
-    const visibleSlots = showAllShortcuts ? MAX_SLOTS : DEFAULT_VISIBLE_SLOTS;
-    shortcuts.forEach((shortcut, idx) => {
-        const tile = document.createElement("a");
-        tile.className = "tile" + (shortcut ? "" : " empty");
-        tile.href = shortcut ? shortcut.url : "#";
-        tile.target = "_blank";
-        tile.rel = "noopener";
-        const img = document.createElement("img");
-        img.src = shortcut ? getFavicon(shortcut.url) : "icons/plus.svg";
-        img.alt = shortcut ? shortcut.title || shortcut.url : "add shortcut";
-        const title = document.createElement("div");
-        title.className = "title";
-        title.textContent = shortcut ? shortcut.title || shortcut.url : "Add shortcut";
-        tile.append(img, title);
-        if (!shortcut) {
-            tile.addEventListener("click", (e) => {
-                e.preventDefault();
-                openSettings();
-                setTimeout(() => focusSlot(idx), 100);
-            });
-        }
-        el.shortcuts.appendChild(tile);
-    });
-}
-
-async function openSettings() {
-    el.modal.classList.remove("hidden");
-    const shortcuts = await loadShortcuts();
-    el.slots.innerHTML = "";
-    shortcuts.forEach((s, i) => {
-        const slot = document.createElement("div");
-        slot.className = "slot";
-        const label = document.createElement("div");
-        label.textContent = `#${i + 1}`;
-        label.style.width = "36px";
-        const input = document.createElement("input");
-        input.type = "text";
-        input.placeholder = "https://example.com | Optional Title";
-        input.value = s ? `${s.url} | ${s.title || ""}` : "";
-        input.dataset.idx = i;
-        const remove = document.createElement("button");
-        remove.textContent = "Remove";
-        remove.addEventListener("click", () => (input.value = ""));
-        slot.append(label, input, remove);
-        el.slots.appendChild(slot);
-    });
-}
-
-function focusSlot(index) {
-    const input = el.slots.querySelector(`input[data-idx='${index}']`);
-    if (input) input.focus();
-}
-
-function closeSettings() {
-    el.modal.classList.add("hidden");
-}
-
-async function handleSave() {
-    const inputs = [...el.slots.querySelectorAll("input")];
-    const shortcuts = inputs.map((i) => parseInput(i.value));
-    await saveShortcuts(shortcuts);
-    await render();
-    closeSettings();
-}
-
-async function handleReset() {
-    if (confirm("Reset all shortcuts?")) {
-        await saveShortcuts(Array(MAX_SLOTS).fill(null));
-        await render();
-        closeSettings();
+function isValidUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch (e) {
+        return false;
     }
 }
 
-el.openSettings.addEventListener("click", openSettings);
-el.save.addEventListener("click", handleSave);
-el.cancel.addEventListener("click", closeSettings);
-el.reset.addEventListener("click", handleReset);
-el.modal.addEventListener("click", (e) => {
-    if (e.target === el.modal) closeSettings();
-});
+function createModal(title, content) {
+    const modalRoot = document.getElementById("modal-root");
+    modalRoot.innerHTML = "";
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    const container = document.createElement("div");
+    container.className = "modal-container";
+    container.setAttribute("role", "dialog");
+    container.setAttribute("aria-modal", "true");
+    container.setAttribute("aria-labelledby", "modal-title");
+    const header = document.createElement("div");
+    header.className = "modal-header";
+    const titleEl = document.createElement("h2");
+    titleEl.id = "modal-title";
+    titleEl.textContent = title;
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "modal-close";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.textContent = "×";
+    closeBtn.addEventListener("click", closeModal);
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
+    const body = document.createElement("div");
+    body.className = "modal-body";
+    body.innerHTML = content;
+    container.appendChild(header);
+    container.appendChild(body);
+    overlay.appendChild(container);
+    modalRoot.appendChild(overlay);
+    const handleEscape = (e) => {
+        if (e.key === "Escape") {
+            closeModal();
+        }
+    };
+    const handleOverlayClick = (e) => {
+        if (e.target === overlay) {
+            closeModal();
+        }
+    };
+    overlay.addEventListener("click", handleOverlayClick);
+    document.addEventListener("keydown", handleEscape);
+    const firstInput = container.querySelector("input, button:not(.modal-close)");
+    if (firstInput) {
+        firstInput.focus();
+    }
+    modalRoot.cleanup = () => {
+        document.removeEventListener("keydown", handleEscape);
+        overlay.removeEventListener("click", handleOverlayClick);
+    };
+    return container;
+}
 
-window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !el.modal.classList.contains("hidden")) closeSettings();
-});
+function closeModal() {
+    const modalRoot = document.getElementById("modal-root");
+    if (modalRoot.cleanup) {
+        modalRoot.cleanup();
+        delete modalRoot.cleanup;
+    }
+    modalRoot.innerHTML = "";
+}
 
-render();
+function showErrorModal(message) {
+    const escapedMessage = message.replace(
+        /[&<>"']/g,
+        (char) =>
+            ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+            }[char])
+    );
+    const modalContent = `
+        <div class="error-modal">
+            <p class="error-message">${escapedMessage}</p>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="ok-btn">OK</button>
+            </div>
+        </div>
+    `;
+    const modal = createModal("Error", modalContent);
+    const okBtn = modal.querySelector("#ok-btn");
+    okBtn.addEventListener("click", closeModal);
+    okBtn.focus();
+}
+
+async function migrateStorage(currentVersion) {
+    const { version } = (await chrome.storage.sync.get("version")) || { version: "0.0.0" };
+    if (version !== currentVersion) {
+        await chrome.storage.sync.set({ version: currentVersion });
+    }
+}
+
+async function initializeStorage() {
+    let data;
+    try {
+        data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
+    } catch (error) {
+        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
+        data = localData ? JSON.parse(localData) : {};
+    }
+    const updates = {};
+    if (!data[STORAGE_KEYS.SETTINGS]) {
+        updates[STORAGE_KEYS.SETTINGS] = DEFAULT_SETTINGS;
+    }
+    if (!data[STORAGE_KEYS.SHORTCUTS]) {
+        updates[STORAGE_KEYS.SHORTCUTS] = DEFAULT_SHORTCUTS;
+    }
+    if (Object.keys(updates).length > 0) {
+        const size = getStorageSize(updates);
+        if (size > STORAGE_LIMITS.QUOTA_BYTES) {
+            showErrorModal("Initial data exceeds Chrome Sync storage limits. Using local storage.");
+            localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(updates));
+            return;
+        }
+        try {
+            await chrome.storage.sync.set(updates);
+        } catch (error) {
+            if (error.message?.includes("QUOTA")) {
+                showErrorModal("Chrome Sync storage quota exceeded. Using local storage.");
+                localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(updates));
+            } else {
+                throw error;
+            }
+        }
+    }
+}
+
+function renderHeader() {
+    const header = document.querySelector("header");
+    header.innerHTML = `
+        <h1 class="visually-hidden">NewTab++</h1>
+        <div class="header-controls"></div>
+    `;
+}
+
+function renderShortcuts(shortcuts) {
+    const app = document.getElementById("app");
+    app.innerHTML = "";
+    const grid = document.createElement("div");
+    grid.className = "shortcuts-grid";
+    shortcuts.forEach((shortcut) => {
+        const shortcutWrapper = document.createElement("div");
+        shortcutWrapper.className = "shortcut";
+        const card = document.createElement("div");
+        card.className = "shortcut-card";
+        card.setAttribute("data-id", shortcut.id);
+        const iconContainer = document.createElement("div");
+        iconContainer.className = "shortcut-icon";
+        const img = document.createElement("img");
+        img.alt = `${shortcut.title} favicon`;
+        img.src = getFaviconUrl(shortcut.url);
+        img.addEventListener("error", () => {
+            const initialChar = getInitialCharacter(shortcut.title);
+            img.src = createFallbackIconSvg(initialChar);
+        });
+        iconContainer.appendChild(img);
+        card.appendChild(iconContainer);
+        const title = document.createElement("div");
+        title.className = "shortcut-title";
+        title.textContent = shortcut.title;
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "shortcut-delete";
+        deleteBtn.setAttribute("aria-label", `Delete ${shortcut.title}`);
+        deleteBtn.textContent = "×";
+        deleteBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            handleDeleteShortcut(shortcut.id);
+        });
+        const editBtn = document.createElement("button");
+        editBtn.className = "shortcut-edit";
+        editBtn.setAttribute("aria-label", `Edit ${shortcut.title}`);
+        editBtn.textContent = "✎";
+        editBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openEditModal(shortcut.id);
+        });
+        card.addEventListener("click", () => {
+            window.location.href = shortcut.url;
+        });
+        shortcutWrapper.appendChild(card);
+        shortcutWrapper.appendChild(title);
+        shortcutWrapper.appendChild(deleteBtn);
+        shortcutWrapper.appendChild(editBtn);
+        grid.appendChild(shortcutWrapper);
+    });
+    if (shortcuts.length < MAX_SHORTCUTS) {
+        const addButton = document.createElement("button");
+        addButton.className = "shortcut-add-button";
+        addButton.setAttribute("aria-label", "Add new shortcut");
+        addButton.addEventListener("click", openAddModal);
+        grid.appendChild(addButton);
+    }
+    app.appendChild(grid);
+}
+
+function renderFooter() {
+    const footer = document.querySelector("footer");
+    footer.innerHTML = `
+        <p>&copy; ${new Date().getFullYear()} NewTab++</p>
+    `;
+}
+
+function openAddModal() {
+    const formHtml = `
+        <form id="shortcut-form">
+            <div class="form-group">
+                <label class="form-label" for="shortcut-title">Title</label>
+                <input type="text" id="shortcut-title" class="form-input" required maxlength="50">
+                <div class="form-error"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="shortcut-url">URL</label>
+                <input type="url" id="shortcut-url" class="form-input" required placeholder="https://">
+                <div class="form-error"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Shortcut</button>
+            </div>
+        </form>
+    `;
+    const modal = createModal("Add Shortcut", formHtml);
+    const cancelBtn = modal.querySelector(".btn-secondary");
+    if (cancelBtn) {
+        cancelBtn.addEventListener("click", closeModal);
+    }
+    const form = modal.querySelector("#shortcut-form");
+    form.addEventListener("submit", handleFormSubmit);
+    form.querySelectorAll(".form-input").forEach((input) => {
+        input.addEventListener("input", () => {
+            input.classList.remove("error");
+            if (input.nextElementSibling) {
+                input.nextElementSibling.textContent = "";
+            }
+        });
+    });
+    form.querySelectorAll(".form-input").forEach((input) => {
+        input.addEventListener("input", () => {
+            input.classList.remove("error");
+            if (input.nextElementSibling) {
+                input.nextElementSibling.textContent = "";
+            }
+        });
+    });
+}
+
+function openEditModal(shortcutId) {
+    chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS, ({ shortcuts }) => {
+        const shortcut = shortcuts.find((s) => s.id === shortcutId);
+        if (!shortcut) return;
+        const escapeHtml = (str) =>
+            str.replace(
+                /[&<>"']/g,
+                (m) =>
+                    ({
+                        "&": "&amp;",
+                        "<": "&lt;",
+                        ">": "&gt;",
+                        '"': "&quot;",
+                        "'": "&#39;",
+                    }[m])
+            );
+        const formHtml = `
+            <form id="shortcut-form" data-shortcut-id="${escapeHtml(shortcutId)}">
+                <div class="form-group">
+                    <label class="form-label" for="shortcut-title">Title</label>
+                    <input type="text" id="shortcut-title" class="form-input" required maxlength="50" value="${escapeHtml(
+                        shortcut.title
+                    )}">
+                    <div class="form-error"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="shortcut-url">URL</label>
+                    <input type="url" id="shortcut-url" class="form-input" required value="${escapeHtml(shortcut.url)}">
+                    <div class="form-error"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        `;
+        const modal = createModal("Edit Shortcut", formHtml);
+        const cancelBtn = modal.querySelector(".btn-secondary");
+        if (cancelBtn) {
+            cancelBtn.addEventListener("click", closeModal);
+        }
+        const form = modal.querySelector("#shortcut-form");
+        form.addEventListener("submit", handleFormSubmit);
+    });
+}
+
+async function handleFormSubmit(event) {
+    event.preventDefault();
+    const form = event.target;
+    const title = form.querySelector("#shortcut-title").value.trim();
+    const url = form.querySelector("#shortcut-url").value.trim();
+    const shortcutId = form.dataset.shortcutId;
+    let isValid = true;
+    if (!title) {
+        showError(form, "shortcut-title", "Title is required");
+        isValid = false;
+    }
+    if (!url || !isValidUrl(url)) {
+        showError(form, "shortcut-url", "Please enter a valid URL starting with http:// or https://");
+        isValid = false;
+    }
+    if (!isValid) return;
+    if (shortcutId) {
+        await handleEditShortcut(shortcutId, title, url);
+    } else {
+        await handleAddShortcut(title, url);
+    }
+}
+
+async function handleAddShortcut(title, url) {
+    let shortcuts = [];
+    try {
+        const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+        shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
+    } catch (error) {
+        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
+        if (localData) {
+            const parsed = JSON.parse(localData);
+            shortcuts = parsed[STORAGE_KEYS.SHORTCUTS] || [];
+        }
+    }
+    if (shortcuts.length >= MAX_SHORTCUTS) {
+        showErrorModal(`Maximum of ${MAX_SHORTCUTS} shortcuts allowed`);
+        return;
+    }
+    const newShortcut = {
+        id: generateShortcutId(),
+        title,
+        url,
+    };
+    shortcuts.push(newShortcut);
+    await safeSyncStorage(STORAGE_KEYS.SHORTCUTS, shortcuts);
+    await refreshShortcuts();
+    closeModal();
+}
+
+async function handleEditShortcut(id, title, url) {
+    let shortcuts = [];
+    try {
+        const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+        shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
+    } catch (error) {
+        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
+        if (localData) {
+            const parsed = JSON.parse(localData);
+            shortcuts = parsed[STORAGE_KEYS.SHORTCUTS] || [];
+        }
+    }
+    const index = shortcuts.findIndex((s) => s.id === id);
+    if (index === -1) return;
+    shortcuts[index] = {
+        ...shortcuts[index],
+        title,
+        url,
+    };
+    await safeSyncStorage(STORAGE_KEYS.SHORTCUTS, shortcuts);
+    await refreshShortcuts();
+    closeModal();
+}
+
+function showConfirmModal(message, onConfirm) {
+    const modalContent = `
+        <div class="confirm-modal">
+            <p class="confirm-message">${message}</p>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
+                <button type="button" class="btn btn-danger" id="delete-btn">Delete</button>
+            </div>
+        </div>
+    `;
+    const modal = createModal("Confirm Action", modalContent);
+    const cancelBtn = modal.querySelector("#cancel-btn");
+    const deleteBtn = modal.querySelector("#delete-btn");
+    cancelBtn.addEventListener("click", closeModal);
+    deleteBtn.addEventListener("click", async () => {
+        await onConfirm();
+        closeModal();
+    });
+    cancelBtn.focus();
+    const handleKeyboard = (e) => {
+        if (e.key === "Enter" && document.activeElement === deleteBtn) {
+            e.preventDefault();
+            deleteBtn.click();
+        }
+    };
+    modal.addEventListener("keydown", handleKeyboard);
+}
+
+async function handleDeleteShortcut(id) {
+    const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+    const shortcut = shortcuts.find((s) => s.id === id);
+    if (!shortcut) return;
+    showConfirmModal(`Are you sure you want to delete "${shortcut.title}"?`, async () => {
+        const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+        const filtered = shortcuts.filter((s) => s.id !== id);
+        await chrome.storage.sync.set({ [STORAGE_KEYS.SHORTCUTS]: filtered });
+        await refreshShortcuts();
+    });
+}
+
+function clearFormErrors(form) {
+    const inputs = form.querySelectorAll(".form-input");
+    inputs.forEach((input) => {
+        input.classList.remove("error");
+        if (input.nextElementSibling) {
+            input.nextElementSibling.textContent = "";
+        }
+    });
+}
+
+function showError(form, inputId, message) {
+    clearFormErrors(form);
+    const input = form.querySelector(`#${inputId}`);
+    const error = input.nextElementSibling;
+    error.textContent = message;
+    input.classList.add("error");
+}
+
+async function refreshShortcuts() {
+    const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+    renderShortcuts(shortcuts);
+}
+
+async function initialize() {
+    try {
+        if (typeof chrome === "undefined" || !chrome.storage) {
+            throw new Error("Not running in extension context");
+        }
+        await migrateStorage(CURRENT_VERSION);
+        await initializeStorage();
+        const data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
+        document.documentElement.style.setProperty("--grid-columns", data[STORAGE_KEYS.SETTINGS].columns);
+        renderHeader();
+        renderShortcuts(data[STORAGE_KEYS.SHORTCUTS]);
+        renderFooter();
+    } catch (error) {
+        console.error("Initialization failed:", error);
+        document.getElementById("app").innerHTML = `
+            <div style="text-align: center; padding: 2rem;">
+                <p>Failed to initialize NewTab++. Please try reloading.</p>
+                ${
+                    error.message === "Not running in extension context"
+                        ? "<p>This page must be loaded as a Chrome extension.</p>"
+                        : ""
+                }
+            </div>
+        `;
+    }
+}
+
+document.addEventListener("DOMContentLoaded", initialize);

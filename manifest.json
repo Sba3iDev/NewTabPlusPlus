@@ -3,7 +3,7 @@
     "name": "NewTab++",
     "version": "1.0.0",
     "description": "Enhance your New Tab page with customizable shortcuts",
-    "permissions": ["storage", "favicon"],
+    "permissions": ["storage"],
     "chrome_url_overrides": {
         "newtab": "src/newtab.html"
     }

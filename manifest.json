@@ -1,0 +1,10 @@
+{
+    "manifest_version": 3,
+    "name": "NewTab++",
+    "version": "1.0.0",
+    "description": "Enhance your New Tab page with customizable shortcuts",
+    "permissions": ["storage", "favicon"],
+    "chrome_url_overrides": {
+        "newtab": "src/newtab.html"
+    }
+}

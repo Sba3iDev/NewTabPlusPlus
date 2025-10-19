@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>NewTab++</title>
+        <link rel="stylesheet" href="styles/newtab.css" />
+    </head>
+    <body>
+        <main class="container">
+            <header>
+                <button id="toggle-shortcuts" title="Toggle between 10 and 20 shortcuts">Show More</button>
+                <button id="open-settings" title="Manage shortcuts">Customize Chrome</button>
+            </header>
+            <img
+                src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png"
+                alt="Google"
+                class="logo"
+            />
+            <div class="search-container">
+                <div class="search-bar">
+                    <svg class="search-icon" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path
+                            fill="#9aa0a6"
+                            d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                        ></path>
+                    </svg>
+                    <input type="text" placeholder="Search Google or type a URL" class="search-input" />
+                </div>
+            </div>
+            <section id="shortcuts" class="grid grid-10"></section>
+            <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true">
+                <div class="modal-content">
+                    <h2>Manage Shortcuts</h2>
+                    <p class="hint">
+                        Add up to 20 shortcuts. Toggle visibility with the Show More/Less button. Use full URL (https://...).
+                    </p>
+                    <div id="slots"></div>
+                    <div class="modal-actions">
+                        <button id="save">Save</button>
+                        <button id="cancel">Cancel</button>
+                        <button id="reset">Reset</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <script src="scripts/newtab.js"></script>
+    </body>
+</html>

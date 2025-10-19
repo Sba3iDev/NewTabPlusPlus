@@ -124,7 +124,7 @@ footer {
 }
 
 .shortcut-title {
-    margin-top: 8px;
+    margin-top: var(--spacing-small);
     font-size: 0.75rem;
     max-width: 90px;
     text-align: center;

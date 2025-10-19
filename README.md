@@ -35,7 +35,7 @@ _(Coming soon)_
 ### Prerequisites
 
 -   Chrome browser
--   Node.js 14+ (for development tools)
+-   Node.js 18+ (LTS) or 20+ (current LTS) for development tools
 
 ### Project Structure
 

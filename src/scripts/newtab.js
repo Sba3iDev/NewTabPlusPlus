@@ -328,14 +328,6 @@ function openAddModal() {
             }
         });
     });
-    form.querySelectorAll(".form-input").forEach((input) => {
-        input.addEventListener("input", () => {
-            input.classList.remove("error");
-            if (input.nextElementSibling) {
-                input.nextElementSibling.textContent = "";
-            }
-        });
-    });
 }
 
 function openEditModal(shortcutId) {

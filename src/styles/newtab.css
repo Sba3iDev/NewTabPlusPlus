@@ -99,6 +99,14 @@ footer {
     display: flex;
     align-items: center;
     justify-content: center;
+    text-decoration: none;
+    color: inherit;
+    outline: none;
+}
+
+.shortcut-card:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-primary);
+    transform: translateY(-2px);
 }
 
 .shortcut-card:hover {
@@ -136,7 +144,7 @@ footer {
 
 .shortcut-edit {
     position: absolute;
-    bottom: -8px;
+    bottom: 32px;
     right: -8px;
     width: 24px;
     height: 24px;

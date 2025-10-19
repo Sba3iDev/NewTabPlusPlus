@@ -25,6 +25,36 @@ const DEFAULT_SHORTCUTS = [
     },
 ];
 
+const STORAGE_LIMITS = {
+    QUOTA_BYTES: 102400,
+    QUOTA_BYTES_PER_ITEM: 8192,
+    LOCAL_STORAGE_KEY: "newtab_data",
+};
+
+function getStorageSize(data) {
+    return new TextEncoder().encode(JSON.stringify(data)).length;
+}
+
+async function safeSyncStorage(key, value) {
+    const payload = { [key]: value };
+    const size = getStorageSize(payload);
+    if (size > STORAGE_LIMITS.QUOTA_BYTES_PER_ITEM) {
+        showErrorModal("Data size exceeds Chrome Sync storage limits. Falling back to local storage.");
+        localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(payload));
+        return;
+    }
+    try {
+        await chrome.storage.sync.set(payload);
+    } catch (error) {
+        if (error.message?.includes("QUOTA")) {
+            showErrorModal("Chrome Sync storage quota exceeded. Falling back to local storage.");
+            localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(payload));
+        } else {
+            throw error;
+        }
+    }
+}
+
 function getFaviconUrl(url) {
     try {
         const domain = new URL(url).hostname;
@@ -36,6 +66,19 @@ function getFaviconUrl(url) {
 
 function generateShortcutId() {
     return crypto.randomUUID();
+}
+
+function getInitialCharacter(text) {
+    if (typeof text !== "string" || !text.trim()) {
+        return "?";
+    }
+    return text.trim()[0].toUpperCase();
+}
+
+function createFallbackIconSvg(char) {
+    return `data:image/svg+xml,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
+    )}`;
 }
 
 function isValidUrl(url) {
@@ -50,7 +93,6 @@ function isValidUrl(url) {
 function createModal(title, content) {
     const modalRoot = document.getElementById("modal-root");
     modalRoot.innerHTML = "";
-    modalRoot.previousFocus = document.activeElement;
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     const container = document.createElement("div");
@@ -89,33 +131,12 @@ function createModal(title, content) {
     };
     overlay.addEventListener("click", handleOverlayClick);
     document.addEventListener("keydown", handleEscape);
-    const handleTab = (e) => {
-        if (e.key !== "Tab") return;
-        const focusableElements = container.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        const firstFocusable = focusableElements[0];
-        const lastFocusable = focusableElements[focusableElements.length - 1];
-        if (e.shiftKey) {
-            if (document.activeElement === firstFocusable) {
-                e.preventDefault();
-                lastFocusable.focus();
-            }
-        } else {
-            if (document.activeElement === lastFocusable) {
-                e.preventDefault();
-                firstFocusable.focus();
-            }
-        }
-    };
-    document.addEventListener("keydown", handleTab);
     const firstInput = container.querySelector("input, button:not(.modal-close)");
     if (firstInput) {
         firstInput.focus();
     }
     modalRoot.cleanup = () => {
         document.removeEventListener("keydown", handleEscape);
-        document.removeEventListener("keydown", handleTab);
         overlay.removeEventListener("click", handleOverlayClick);
     };
     return container;
@@ -127,65 +148,83 @@ function closeModal() {
         modalRoot.cleanup();
         delete modalRoot.cleanup;
     }
-    if (modalRoot.previousFocus && document.contains(modalRoot.previousFocus)) {
-        modalRoot.previousFocus.focus();
-    }
-    delete modalRoot.previousFocus;
     modalRoot.innerHTML = "";
 }
 
 function showErrorModal(message) {
-    const errorModal = document.createElement("div");
-    errorModal.className = "error-modal";
-    const messageP = document.createElement("p");
-    messageP.className = "error-message";
-    messageP.textContent = message;
-    errorModal.appendChild(messageP);
-    const footer = document.createElement("div");
-    footer.className = "modal-footer";
-    const okBtn = document.createElement("button");
-    okBtn.type = "button";
-    okBtn.className = "btn btn-primary";
-    okBtn.id = "ok-btn";
-    okBtn.textContent = "OK";
-    footer.appendChild(okBtn);
-    errorModal.appendChild(footer);
-    const modal = createModal("Error", errorModal.outerHTML);
-    const modalOkBtn = modal.querySelector("#ok-btn");
-    modalOkBtn.addEventListener("click", closeModal);
-    modalOkBtn.focus();
+    const escapedMessage = message.replace(
+        /[&<>"']/g,
+        (char) =>
+            ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+            }[char])
+    );
+    const modalContent = `
+        <div class="error-modal">
+            <p class="error-message">${escapedMessage}</p>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="ok-btn">OK</button>
+            </div>
+        </div>
+    `;
+    const modal = createModal("Error", modalContent);
+    const okBtn = modal.querySelector("#ok-btn");
+    okBtn.addEventListener("click", closeModal);
+    okBtn.focus();
+}
+
+async function migrateStorage(currentVersion) {
+    const { version } = (await chrome.storage.sync.get("version")) || { version: "0.0.0" };
+    if (version !== currentVersion) {
+        await chrome.storage.sync.set({ version: currentVersion });
+    }
 }
 
 async function initializeStorage() {
-    const data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
+    let data;
+    try {
+        data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
+    } catch (error) {
+        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
+        data = localData ? JSON.parse(localData) : {};
+    }
     const updates = {};
-    if (!data[STORAGE_KEYS.SETTINGS] || !data[STORAGE_KEYS.SHORTCUTS]) {
-        const legacyData = localStorage.getItem("newtab_data");
-        if (legacyData) {
-            try {
-                const parsed = JSON.parse(legacyData);
-                if (!data[STORAGE_KEYS.SETTINGS] && parsed[STORAGE_KEYS.SETTINGS]) {
-                    updates[STORAGE_KEYS.SETTINGS] = parsed[STORAGE_KEYS.SETTINGS];
-                }
-                if (!data[STORAGE_KEYS.SHORTCUTS] && parsed[STORAGE_KEYS.SHORTCUTS]) {
-                    updates[STORAGE_KEYS.SHORTCUTS] = parsed[STORAGE_KEYS.SHORTCUTS];
-                }
-                localStorage.removeItem("newtab_data");
-            } catch (e) {
-                console.error("Failed to migrate legacy data:", e);
+    if (!data[STORAGE_KEYS.SETTINGS]) {
+        updates[STORAGE_KEYS.SETTINGS] = DEFAULT_SETTINGS;
+    }
+    if (!data[STORAGE_KEYS.SHORTCUTS]) {
+        updates[STORAGE_KEYS.SHORTCUTS] = DEFAULT_SHORTCUTS;
+    }
+    if (Object.keys(updates).length > 0) {
+        const size = getStorageSize(updates);
+        if (size > STORAGE_LIMITS.QUOTA_BYTES) {
+            showErrorModal("Initial data exceeds Chrome Sync storage limits. Using local storage.");
+            localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(updates));
+            return;
+        }
+        try {
+            await chrome.storage.sync.set(updates);
+        } catch (error) {
+            if (error.message?.includes("QUOTA")) {
+                showErrorModal("Chrome Sync storage quota exceeded. Using local storage.");
+                localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(updates));
+            } else {
+                throw error;
             }
         }
     }
-    if (!data[STORAGE_KEYS.SETTINGS] && !updates[STORAGE_KEYS.SETTINGS]) {
-        updates[STORAGE_KEYS.SETTINGS] = DEFAULT_SETTINGS;
-    }
-    if (!data[STORAGE_KEYS.SHORTCUTS] && !updates[STORAGE_KEYS.SHORTCUTS]) {
-        updates[STORAGE_KEYS.SHORTCUTS] = DEFAULT_SHORTCUTS;
-    }
+}
 
-    if (Object.keys(updates).length > 0) {
-        await chrome.storage.sync.set(updates);
-    }
+function renderHeader() {
+    const header = document.querySelector("header");
+    header.innerHTML = `
+        <h1 class="visually-hidden">NewTab++</h1>
+        <div class="header-controls"></div>
+    `;
 }
 
 function renderShortcuts(shortcuts) {
@@ -196,31 +235,18 @@ function renderShortcuts(shortcuts) {
     shortcuts.forEach((shortcut) => {
         const shortcutWrapper = document.createElement("div");
         shortcutWrapper.className = "shortcut";
-        const card = document.createElement("a");
+        const card = document.createElement("div");
         card.className = "shortcut-card";
         card.setAttribute("data-id", shortcut.id);
-        card.href = shortcut.url;
-        card.setAttribute("role", "button");
-        card.setAttribute("aria-label", `Open ${shortcut.title}`);
         const iconContainer = document.createElement("div");
         iconContainer.className = "shortcut-icon";
         const img = document.createElement("img");
         img.alt = `${shortcut.title} favicon`;
-        const faviconUrl = getFaviconUrl(shortcut.url);
-        if (faviconUrl) {
-            img.src = faviconUrl;
-            img.addEventListener("error", () => {
-                const char = (shortcut.title?.trim()[0] || "?").toUpperCase();
-                img.src = `data:image/svg+xml,${encodeURIComponent(
-                    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
-                )}`;
-            });
-        } else {
-            const char = (shortcut.title?.trim()[0] || "?").toUpperCase();
-            img.src = `data:image/svg+xml,${encodeURIComponent(
-                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
-            )}`;
-        }
+        img.src = getFaviconUrl(shortcut.url);
+        img.addEventListener("error", () => {
+            const initialChar = getInitialCharacter(shortcut.title);
+            img.src = createFallbackIconSvg(initialChar);
+        });
         iconContainer.appendChild(img);
         card.appendChild(iconContainer);
         const title = document.createElement("div");
@@ -261,6 +287,13 @@ function renderShortcuts(shortcuts) {
     app.appendChild(grid);
 }
 
+function renderFooter() {
+    const footer = document.querySelector("footer");
+    footer.innerHTML = `
+        <p>&copy; ${new Date().getFullYear()} NewTab++</p>
+    `;
+}
+
 function openAddModal() {
     const formHtml = `
         <form id="shortcut-form">
@@ -271,8 +304,7 @@ function openAddModal() {
             </div>
             <div class="form-group">
                 <label class="form-label" for="shortcut-url">URL</label>
-                <input type="url" id="shortcut-url" class="form-input" required 
-                    placeholder="example.com (https:// will be added if omitted)">
+                <input type="url" id="shortcut-url" class="form-input" required placeholder="https://">
                 <div class="form-error"></div>
             </div>
             <div class="modal-footer">
@@ -288,84 +320,83 @@ function openAddModal() {
     }
     const form = modal.querySelector("#shortcut-form");
     form.addEventListener("submit", handleFormSubmit);
+    form.querySelectorAll(".form-input").forEach((input) => {
+        input.addEventListener("input", () => {
+            input.classList.remove("error");
+            if (input.nextElementSibling) {
+                input.nextElementSibling.textContent = "";
+            }
+        });
+    });
+    form.querySelectorAll(".form-input").forEach((input) => {
+        input.addEventListener("input", () => {
+            input.classList.remove("error");
+            if (input.nextElementSibling) {
+                input.nextElementSibling.textContent = "";
+            }
+        });
+    });
 }
 
-async function openEditModal(shortcutId) {
-    const shortcuts = (await getData(STORAGE_KEYS.SHORTCUTS)) || [];
-    const shortcut = shortcuts.find((s) => s.id === shortcutId);
-    if (!shortcut) return;
-    const form = document.createElement("form");
-    form.id = "shortcut-form";
-    form.dataset.shortcutId = shortcutId;
-    const titleGroup = document.createElement("div");
-    titleGroup.className = "form-group";
-    const titleLabel = document.createElement("label");
-    titleLabel.className = "form-label";
-    titleLabel.htmlFor = "shortcut-title";
-    titleLabel.textContent = "Title";
-    const titleInput = document.createElement("input");
-    titleInput.type = "text";
-    titleInput.id = "shortcut-title";
-    titleInput.className = "form-input";
-    titleInput.required = true;
-    titleInput.maxLength = 50;
-    titleInput.value = shortcut.title;
-    const titleError = document.createElement("div");
-    titleError.className = "form-error";
-    titleGroup.append(titleLabel, titleInput, titleError);
-    const urlGroup = document.createElement("div");
-    urlGroup.className = "form-group";
-    const urlLabel = document.createElement("label");
-    urlLabel.className = "form-label";
-    urlLabel.htmlFor = "shortcut-url";
-    urlLabel.textContent = "URL";
-    const urlInput = document.createElement("input");
-    urlInput.type = "url";
-    urlInput.id = "shortcut-url";
-    urlInput.className = "form-input";
-    urlInput.required = true;
-    urlInput.value = shortcut.url;
-    const urlError = document.createElement("div");
-    urlError.className = "form-error";
-    urlGroup.append(urlLabel, urlInput, urlError);
-    const footer = document.createElement("div");
-    footer.className = "modal-footer";
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.className = "btn btn-secondary";
-    cancelBtn.textContent = "Cancel";
-    const submitBtn = document.createElement("button");
-    submitBtn.type = "submit";
-    submitBtn.className = "btn btn-primary";
-    submitBtn.textContent = "Save Changes";
-    footer.append(cancelBtn, submitBtn);
-    form.append(titleGroup, urlGroup, footer);
-    const modal = createModal("Edit Shortcut", form.outerHTML);
-    const modalCancelBtn = modal.querySelector(".btn-secondary");
-    if (modalCancelBtn) {
-        modalCancelBtn.addEventListener("click", closeModal);
-    }
-    const modalForm = modal.querySelector("#shortcut-form");
-    modalForm.addEventListener("submit", handleFormSubmit);
+function openEditModal(shortcutId) {
+    chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS, ({ shortcuts }) => {
+        const shortcut = shortcuts.find((s) => s.id === shortcutId);
+        if (!shortcut) return;
+        const escapeHtml = (str) =>
+            str.replace(
+                /[&<>"']/g,
+                (m) =>
+                    ({
+                        "&": "&amp;",
+                        "<": "&lt;",
+                        ">": "&gt;",
+                        '"': "&quot;",
+                        "'": "&#39;",
+                    }[m])
+            );
+        const formHtml = `
+            <form id="shortcut-form" data-shortcut-id="${escapeHtml(shortcutId)}">
+                <div class="form-group">
+                    <label class="form-label" for="shortcut-title">Title</label>
+                    <input type="text" id="shortcut-title" class="form-input" required maxlength="50" value="${escapeHtml(
+                        shortcut.title
+                    )}">
+                    <div class="form-error"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="shortcut-url">URL</label>
+                    <input type="url" id="shortcut-url" class="form-input" required value="${escapeHtml(shortcut.url)}">
+                    <div class="form-error"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        `;
+        const modal = createModal("Edit Shortcut", formHtml);
+        const cancelBtn = modal.querySelector(".btn-secondary");
+        if (cancelBtn) {
+            cancelBtn.addEventListener("click", closeModal);
+        }
+        const form = modal.querySelector("#shortcut-form");
+        form.addEventListener("submit", handleFormSubmit);
+    });
 }
 
 async function handleFormSubmit(event) {
     event.preventDefault();
     const form = event.target;
     const title = form.querySelector("#shortcut-title").value.trim();
-    let url = form.querySelector("#shortcut-url").value.trim();
+    const url = form.querySelector("#shortcut-url").value.trim();
     const shortcutId = form.dataset.shortcutId;
     let isValid = true;
-    if (url && !url.match(/^https?:\/\//i)) {
-        url = "https://" + url;
-        form.querySelector("#shortcut-url").value = url;
-    }
     if (!title) {
         showError(form, "shortcut-title", "Title is required");
         isValid = false;
     }
     if (!url || !isValidUrl(url)) {
-        showError(form, "shortcut-url", "Please enter a valid URL (https:// will be added if omitted)");
+        showError(form, "shortcut-url", "Please enter a valid URL starting with http:// or https://");
         isValid = false;
     }
     if (!isValid) return;
@@ -377,7 +408,17 @@ async function handleFormSubmit(event) {
 }
 
 async function handleAddShortcut(title, url) {
-    const shortcuts = (await getData(STORAGE_KEYS.SHORTCUTS)) || [];
+    let shortcuts = [];
+    try {
+        const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+        shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
+    } catch (error) {
+        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
+        if (localData) {
+            const parsed = JSON.parse(localData);
+            shortcuts = parsed[STORAGE_KEYS.SHORTCUTS] || [];
+        }
+    }
     if (shortcuts.length >= MAX_SHORTCUTS) {
         showErrorModal(`Maximum of ${MAX_SHORTCUTS} shortcuts allowed`);
         return;
@@ -388,14 +429,23 @@ async function handleAddShortcut(title, url) {
         url,
     };
     shortcuts.push(newShortcut);
-    await chrome.storage.sync.set({ [STORAGE_KEYS.SHORTCUTS]: shortcuts });
-    const updatedShortcuts = (await getData(STORAGE_KEYS.SHORTCUTS)) || [];
-    renderShortcuts(updatedShortcuts);
+    await safeSyncStorage(STORAGE_KEYS.SHORTCUTS, shortcuts);
+    await refreshShortcuts();
     closeModal();
 }
 
 async function handleEditShortcut(id, title, url) {
-    const shortcuts = (await getData(STORAGE_KEYS.SHORTCUTS)) || [];
+    let shortcuts = [];
+    try {
+        const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+        shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
+    } catch (error) {
+        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
+        if (localData) {
+            const parsed = JSON.parse(localData);
+            shortcuts = parsed[STORAGE_KEYS.SHORTCUTS] || [];
+        }
+    }
     const index = shortcuts.findIndex((s) => s.id === id);
     if (index === -1) return;
     shortcuts[index] = {
@@ -403,35 +453,52 @@ async function handleEditShortcut(id, title, url) {
         title,
         url,
     };
-    await chrome.storage.sync.set({ [STORAGE_KEYS.SHORTCUTS]: shortcuts });
-    const updatedShortcuts = (await getData(STORAGE_KEYS.SHORTCUTS)) || [];
-    renderShortcuts(updatedShortcuts);
+    await safeSyncStorage(STORAGE_KEYS.SHORTCUTS, shortcuts);
+    await refreshShortcuts();
     closeModal();
 }
 
-async function getData(key) {
-    try {
-        const result = await chrome.storage.sync.get(key);
-        return result[key];
-    } catch {
-        return null;
-    }
+function showConfirmModal(message, onConfirm) {
+    const modalContent = `
+        <div class="confirm-modal">
+            <p class="confirm-message">${message}</p>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
+                <button type="button" class="btn btn-danger" id="delete-btn">Delete</button>
+            </div>
+        </div>
+    `;
+    const modal = createModal("Confirm Action", modalContent);
+    const cancelBtn = modal.querySelector("#cancel-btn");
+    const deleteBtn = modal.querySelector("#delete-btn");
+    cancelBtn.addEventListener("click", closeModal);
+    deleteBtn.addEventListener("click", async () => {
+        await onConfirm();
+        closeModal();
+    });
+    cancelBtn.focus();
+    const handleKeyboard = (e) => {
+        if (e.key === "Enter" && document.activeElement === deleteBtn) {
+            e.preventDefault();
+            deleteBtn.click();
+        }
+    };
+    modal.addEventListener("keydown", handleKeyboard);
 }
 
 async function handleDeleteShortcut(id) {
-    const shortcuts = (await getData(STORAGE_KEYS.SHORTCUTS)) || [];
+    const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
     const shortcut = shortcuts.find((s) => s.id === id);
     if (!shortcut) return;
-
-    if (confirm(`Are you sure you want to delete "${shortcut.title}"?`)) {
+    showConfirmModal(`Are you sure you want to delete "${shortcut.title}"?`, async () => {
+        const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
         const filtered = shortcuts.filter((s) => s.id !== id);
         await chrome.storage.sync.set({ [STORAGE_KEYS.SHORTCUTS]: filtered });
-        const updatedShortcuts = (await getData(STORAGE_KEYS.SHORTCUTS)) || [];
-        renderShortcuts(updatedShortcuts);
-    }
+        await refreshShortcuts();
+    });
 }
 
-function showError(form, inputId, message) {
+function clearFormErrors(form) {
     const inputs = form.querySelectorAll(".form-input");
     inputs.forEach((input) => {
         input.classList.remove("error");
@@ -439,10 +506,19 @@ function showError(form, inputId, message) {
             input.nextElementSibling.textContent = "";
         }
     });
+}
+
+function showError(form, inputId, message) {
+    clearFormErrors(form);
     const input = form.querySelector(`#${inputId}`);
     const error = input.nextElementSibling;
     error.textContent = message;
     input.classList.add("error");
+}
+
+async function refreshShortcuts() {
+    const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+    renderShortcuts(shortcuts);
 }
 
 async function initialize() {
@@ -450,11 +526,13 @@ async function initialize() {
         if (typeof chrome === "undefined" || !chrome.storage) {
             throw new Error("Not running in extension context");
         }
+        await migrateStorage(CURRENT_VERSION);
         await initializeStorage();
-        const settings = (await getData(STORAGE_KEYS.SETTINGS)) || DEFAULT_SETTINGS;
-        const shortcuts = (await getData(STORAGE_KEYS.SHORTCUTS)) || DEFAULT_SHORTCUTS;
-        document.documentElement.style.setProperty("--grid-columns", settings.columns);
-        renderShortcuts(shortcuts);
+        const data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
+        document.documentElement.style.setProperty("--grid-columns", data[STORAGE_KEYS.SETTINGS].columns);
+        renderHeader();
+        renderShortcuts(data[STORAGE_KEYS.SHORTCUTS]);
+        renderFooter();
     } catch (error) {
         console.error("Initialization failed:", error);
         document.getElementById("app").innerHTML = `

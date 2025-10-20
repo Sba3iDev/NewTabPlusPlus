@@ -41,7 +41,6 @@ _(Coming soon)_
 
 ```
 NewTab++/
-├── docs/               # Documentation
 ├── public/            # Static assets
 │   └── icons/        # Extension icons
 ├── src/              # Source code
@@ -61,10 +60,6 @@ NewTab++/
 ## Contributing
 
 Contributions are welcome! Please read our contribution guidelines before submitting pull requests.
-
-## License
-
-[MIT License](LICENSE)
 
 ## Credits
 

@@ -256,7 +256,7 @@ function renderShortcuts(shortcuts) {
             e.stopPropagation();
             openEditModal(shortcut.id);
         });
-        card.addEventListener("click", () => {
+        shortcutWrapper.addEventListener("click", () => {
             window.location.href = shortcut.url;
         });
         shortcutWrapper.appendChild(card);

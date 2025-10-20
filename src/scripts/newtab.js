@@ -24,7 +24,6 @@ const DEFAULT_SHORTCUTS = [
         url: "https://youtube.com",
     },
 ];
-
 const STORAGE_LIMITS = {
     QUOTA_BYTES: 102400,
     QUOTA_BYTES_PER_ITEM: 8192,
@@ -152,20 +151,9 @@ function closeModal() {
 }
 
 function showErrorModal(message) {
-    const escapedMessage = message.replace(
-        /[&<>"']/g,
-        (char) =>
-            ({
-                "&": "&amp;",
-                "<": "&lt;",
-                ">": "&gt;",
-                '"': "&quot;",
-                "'": "&#39;",
-            }[char])
-    );
     const modalContent = `
         <div class="error-modal">
-            <p class="error-message">${escapedMessage}</p>
+            <p class="error-message">${message}</p>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" id="ok-btn">OK</button>
             </div>
@@ -295,7 +283,7 @@ function renderFooter() {
 }
 
 function openAddModal() {
-    const formHtml = `
+    const modalContent = `
         <form id="shortcut-form">
             <div class="form-group">
                 <label class="form-label" for="shortcut-title">Title</label>
@@ -313,7 +301,7 @@ function openAddModal() {
             </div>
         </form>
     `;
-    const modal = createModal("Add Shortcut", formHtml);
+    const modal = createModal("Add Shortcut", modalContent);
     const cancelBtn = modal.querySelector(".btn-secondary");
     if (cancelBtn) {
         cancelBtn.addEventListener("click", closeModal);
@@ -334,30 +322,16 @@ function openEditModal(shortcutId) {
     chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS, ({ shortcuts }) => {
         const shortcut = shortcuts.find((s) => s.id === shortcutId);
         if (!shortcut) return;
-        const escapeHtml = (str) =>
-            str.replace(
-                /[&<>"']/g,
-                (m) =>
-                    ({
-                        "&": "&amp;",
-                        "<": "&lt;",
-                        ">": "&gt;",
-                        '"': "&quot;",
-                        "'": "&#39;",
-                    }[m])
-            );
-        const formHtml = `
-            <form id="shortcut-form" data-shortcut-id="${escapeHtml(shortcutId)}">
+        const modalContent = `
+            <form id="shortcut-form" data-shortcut-id="${shortcutId}">
                 <div class="form-group">
                     <label class="form-label" for="shortcut-title">Title</label>
-                    <input type="text" id="shortcut-title" class="form-input" required maxlength="50" value="${escapeHtml(
-                        shortcut.title
-                    )}">
+                    <input type="text" id="shortcut-title" class="form-input" required maxlength="50" value="${shortcut.title}">
                     <div class="form-error"></div>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="shortcut-url">URL</label>
-                    <input type="url" id="shortcut-url" class="form-input" required value="${escapeHtml(shortcut.url)}">
+                    <input type="url" id="shortcut-url" class="form-input" required value="${shortcut.url}">
                     <div class="form-error"></div>
                 </div>
                 <div class="modal-footer">
@@ -366,7 +340,7 @@ function openEditModal(shortcutId) {
                 </div>
             </form>
         `;
-        const modal = createModal("Edit Shortcut", formHtml);
+        const modal = createModal("Edit Shortcut", modalContent);
         const cancelBtn = modal.querySelector(".btn-secondary");
         if (cancelBtn) {
             cancelBtn.addEventListener("click", closeModal);
@@ -415,12 +389,11 @@ async function handleAddShortcut(title, url) {
         showErrorModal(`Maximum of ${MAX_SHORTCUTS} shortcuts allowed`);
         return;
     }
-    const newShortcut = {
+    shortcuts.push({
         id: generateShortcutId(),
         title,
         url,
-    };
-    shortcuts.push(newShortcut);
+    });
     await safeSyncStorage(STORAGE_KEYS.SHORTCUTS, shortcuts);
     await refreshShortcuts();
     closeModal();

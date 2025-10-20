@@ -221,8 +221,11 @@ function renderShortcuts(shortcuts) {
     const grid = document.createElement("div");
     grid.className = "shortcuts-grid";
     shortcuts.forEach((shortcut) => {
-        const shortcutWrapper = document.createElement("div");
+        const shortcutWrapper = document.createElement("a");
         shortcutWrapper.className = "shortcut";
+        shortcutWrapper.href = shortcut.url;
+        shortcutWrapper.target = "_blank";
+        shortcutWrapper.rel = "noopener noreferrer";
         const card = document.createElement("div");
         card.className = "shortcut-card";
         card.setAttribute("data-id", shortcut.id);
@@ -246,6 +249,7 @@ function renderShortcuts(shortcuts) {
         deleteBtn.textContent = "×";
         deleteBtn.addEventListener("click", (e) => {
             e.stopPropagation();
+            e.preventDefault();
             handleDeleteShortcut(shortcut.id);
         });
         const editBtn = document.createElement("button");
@@ -254,10 +258,8 @@ function renderShortcuts(shortcuts) {
         editBtn.textContent = "✎";
         editBtn.addEventListener("click", (e) => {
             e.stopPropagation();
+            e.preventDefault();
             openEditModal(shortcut.id);
-        });
-        shortcutWrapper.addEventListener("click", () => {
-            window.location.href = shortcut.url;
         });
         shortcutWrapper.appendChild(card);
         shortcutWrapper.appendChild(title);

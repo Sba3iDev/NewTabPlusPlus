@@ -17,6 +17,7 @@
     --modal-color: #ffffff;
     --color-error: #b00020;
     --hover-color: #ededed;
+    --color-dots: #d8d8d9;
     --font-primary: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-size-base: 16px;
     --line-height-base: 1.5;
@@ -30,6 +31,7 @@
     --transition-timing: ease-in-out;
     --shadow-1: 0 2px 4px rgba(0, 0, 0, 0.1);
     --shadow-2: 0 4px 8px rgba(0, 0, 0, 0.1);
+    --shadow-3: 0 1px 10px rgba(0, 0, 0, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +44,7 @@
         --card-color: #444746;
         --modal-color: #292a2d;
         --hover-color: #38393b;
+        --color-dots: #5c5c5c;
     }
 }
 
@@ -89,9 +92,9 @@ footer {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     position: relative;
     cursor: pointer;
-    padding-top: 10px;
     width: 100%;
     height: 100%;
     border-radius: 12px;
@@ -116,8 +119,7 @@ footer {
     background-color: transparent;
 }
 
-.shortcut.dragging:hover .shortcut-delete,
-.shortcut.dragging:hover .shortcut-edit {
+.shortcut.dragging:hover .shortcut-dots-menu-icon {
     display: none;
 }
 
@@ -127,8 +129,8 @@ footer {
 }
 
 .shortcut-card {
-    width: 80px;
-    height: 80px;
+    width: 60px;
+    height: 60px;
     background-color: var(--card-color);
     border-radius: 50%;
     transition: all var(--transition-duration) var(--transition-timing);
@@ -139,14 +141,9 @@ footer {
     outline: none;
 }
 
-.shortcut-card:focus-visible {
-    box-shadow: 0 0 0 3px var(--color-primary);
-    transform: translateY(-2px);
-}
-
 .shortcut-icon {
-    width: 48px;
-    height: 48px;
+    width: 30px;
+    height: 30px;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -171,15 +168,14 @@ footer {
     color: var(--color-text);
 }
 
-.shortcut-edit {
+.shortcut-dots-menu-icon {
     position: absolute;
-    top: 1px;
-    right: 1px;
+    top: 3px;
+    right: 3px;
     width: 24px;
     height: 24px;
+    padding: 1px;
     border-radius: 50%;
-    background: var(--color-primary);
-    color: #ffffff;
     display: none;
     align-items: center;
     justify-content: center;
@@ -189,35 +185,63 @@ footer {
     z-index: 1;
 }
 
-.shortcut:hover .shortcut-edit {
-    display: flex;
+.shortcut-dots-menu-icon:hover {
+    background-color: var(--color-dots);
 }
 
-.shortcut-delete {
-    position: absolute;
-    top: 1px;
-    left: 1px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--color-error);
-    color: #ffffff;
+.shortcut:hover .shortcut-dots-menu-icon {
+    display: block;
+}
+
+.shortcut-dots-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
     display: none;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    cursor: pointer;
-    border: none;
-    z-index: 1;
+    z-index: 2000;
 }
 
-.shortcut:hover .shortcut-delete {
+.shortcut-dots-menu-overlay.show {
     display: flex;
+}
+
+.shortcut-dots-menu {
+    position: absolute;
+    top: 0;
+    background-color: var(--modal-color);
+    border-radius: 5px;
+    padding: 8px 0;
+    display: none;
+    flex-direction: column;
+    width: max-content;
+    box-shadow: var(--shadow-3);
+    z-index: 3000;
+}
+
+.shortcut-dots-menu.show {
+    display: flex;
+}
+
+.shortcut-dots-menu button {
+    background-color: transparent;
+    color: var(--color-text);
+    border: none;
+    padding: 8px 24px;
+    text-align: left;
+}
+
+.shortcut-dots-menu button:hover {
+    background-color: var(--hover-color);
 }
 
 .shortcut-add-button {
-    width: 80px;
-    height: 80px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     border: 2px dashed var(--color-secondary);
     background: transparent;
@@ -226,7 +250,7 @@ footer {
     align-items: center;
     pointer-events: auto;
     justify-content: center;
-    margin-top: 10px;
+    margin-top: 17px;
     transition: all var(--transition-duration) var(--transition-timing);
 }
 

@@ -275,28 +275,76 @@ function renderShortcuts(shortcuts) {
         const title = document.createElement("div");
         title.className = "shortcut-title";
         title.textContent = shortcut.title;
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "shortcut-delete";
-        deleteBtn.setAttribute("aria-label", `Delete ${shortcut.title}`);
-        deleteBtn.textContent = "×";
-        deleteBtn.addEventListener("click", (e) => {
+        const dotsMenuIcon = document.createElement("img");
+        dotsMenuIcon.className = "shortcut-dots-menu-icon";
+        dotsMenuIcon.src = "icons/threeDotsIconLight.svg";
+        chrome.storage.sync.get(STORAGE_KEYS.SETTINGS, (result) => {
+            const settings = (result && result[STORAGE_KEYS.SETTINGS]) || DEFAULT_SETTINGS;
+            const theme = settings.theme || DEFAULT_SETTINGS.theme;
+            let useDark;
+            if (theme === "dark") {
+                useDark = true;
+            } else if (theme === "light") {
+                useDark = false;
+            } else {
+                useDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+                if (window.matchMedia) {
+                    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+                    const onChange = (e) => {
+                        dotsMenuIcon.src = e.matches ? "icons/threeDotsIconDark.svg" : "icons/threeDotsIconLight.svg";
+                    };
+                    mq.addEventListener("change", onChange);
+                }
+            }
+            dotsMenuIcon.src = useDark ? "icons/threeDotsIconDark.svg" : "icons/threeDotsIconLight.svg";
+        });
+        dotsMenuIcon.addEventListener("click", (e) => {
             e.stopPropagation();
             e.preventDefault();
-            handleDeleteShortcut(shortcut.id);
+            dotsMenuOverlay.classList.add("show");
+            dotsMenu.classList.add("show");
+        });
+        const dotsMenuOverlay = document.createElement("div");
+        dotsMenuOverlay.className = "shortcut-dots-menu-overlay";
+        const dotsMenu = document.createElement("div");
+        dotsMenu.className = "shortcut-dots-menu";
+        dotsMenuOverlay.addEventListener("click", (e) => {
+            if (e.target === dotsMenuOverlay) {
+                e.stopPropagation();
+                e.preventDefault();
+                dotsMenuOverlay.classList.remove("show");
+                dotsMenu.classList.remove("show");
+            }
         });
         const editBtn = document.createElement("button");
         editBtn.className = "shortcut-edit";
         editBtn.setAttribute("aria-label", `Edit ${shortcut.title}`);
-        editBtn.textContent = "✎";
+        editBtn.textContent = "Edit shortcut";
         editBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             e.preventDefault();
+            dotsMenuOverlay.classList.remove("show");
+            dotsMenu.classList.remove("show");
             openEditModal(shortcut.id);
         });
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "shortcut-delete";
+        deleteBtn.setAttribute("aria-label", `Delete ${shortcut.title}`);
+        deleteBtn.textContent = "Remove";
+        deleteBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            dotsMenuOverlay.classList.remove("show");
+            dotsMenu.classList.remove("show");
+            handleDeleteShortcut(shortcut.id);
+        });
+        dotsMenu.appendChild(editBtn);
+        dotsMenu.appendChild(deleteBtn);
         shortcutWrapper.appendChild(card);
         shortcutWrapper.appendChild(title);
-        shortcutWrapper.appendChild(deleteBtn);
-        shortcutWrapper.appendChild(editBtn);
+        shortcutWrapper.appendChild(dotsMenuIcon);
+        shortcutWrapper.appendChild(dotsMenu);
+        shortcutWrapper.appendChild(dotsMenuOverlay);
         grid.appendChild(shortcutWrapper);
     });
     if (shortcuts.length < MAX_SHORTCUTS) {

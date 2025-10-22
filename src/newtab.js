@@ -279,6 +279,12 @@ function renderShortcuts(shortcuts) {
         dotsMenuIcon.className = "shortcut-dots-menu-icon";
         dotsMenuIcon.src = "icons/threeDotsIconLight.svg";
         chrome.storage.sync.get(STORAGE_KEYS.SETTINGS, (result) => {
+            if (chrome.runtime.lastError) {
+                showErrorModal("Failed to fetch settings for theme:");
+                const useDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+                dotsMenuIcon.src = useDark ? "icons/threeDotsIconDark.svg" : "icons/threeDotsIconLight.svg";
+                return;
+            }
             const settings = (result && result[STORAGE_KEYS.SETTINGS]) || DEFAULT_SETTINGS;
             const theme = settings.theme || DEFAULT_SETTINGS.theme;
             let useDark;

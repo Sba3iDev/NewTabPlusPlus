@@ -506,7 +506,7 @@ async function handleShortcutReorder(draggedId, targetId) {
         if (draggedIndex === -1 || targetIndex === -1) return;
         const [draggedShortcut] = shortcuts.splice(draggedIndex, 1);
         shortcuts.splice(targetIndex, 0, draggedShortcut);
-        await chrome.storage.sync.set({ [STORAGE_KEYS.SHORTCUTS]: shortcuts });
+        await safeSyncStorage(STORAGE_KEYS.SHORTCUTS, shortcuts);
         await refreshShortcuts();
     } catch (error) {
         showErrorModal("Failed to reorder shortcuts. Please try again.");

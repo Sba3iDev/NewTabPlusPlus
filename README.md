@@ -41,14 +41,14 @@ _(Coming soon)_
 
 ```
 NewTab++/
-├── public/            # Static assets
+├── public/           # Static assets
 │   └── icons/        # Extension icons
 ├── src/              # Source code
-│   ├── scripts/     # JavaScript
-│   ├── styles/      # CSS
-│   └── newtab.html  # Main page
+│   ├── newtab.css    # CSS
+│   ├── newtab.hrml   # Main page
+│   └── newtab.js     # Javascript
 ├── manifest.json     # Extension manifest
-└── README.md        # This file
+└── README.md         # This file
 ```
 
 ### Getting Started

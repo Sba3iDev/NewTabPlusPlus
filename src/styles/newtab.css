@@ -95,10 +95,35 @@ footer {
     width: 100%;
     height: 100%;
     border-radius: 12px;
+    text-decoration: none;
+    user-select: none;
+    touch-action: none;
+    transition: transform 150ms ease, background-color var(--transition-duration) var(--transition-timing);
 }
 
 .shortcut:hover {
     background-color: var(--color-surface);
+}
+
+.shortcut.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    cursor: grabbing;
+    transition: none;
+}
+
+.shortcut.dragging:hover {
+    background-color: transparent;
+}
+
+.shortcut.dragging:hover .shortcut-delete,
+.shortcut.dragging:hover .shortcut-edit {
+    display: none;
+}
+
+.shortcut.drag-over {
+    background-color: rgba(33, 150, 243, 0.1);
+    transform: scale(1.05);
 }
 
 .shortcut-card {
@@ -111,7 +136,6 @@ footer {
     display: flex;
     align-items: center;
     justify-content: center;
-    text-decoration: none;
     outline: none;
 }
 
@@ -197,9 +221,10 @@ footer {
     border-radius: 50%;
     border: 2px dashed var(--color-secondary);
     background: transparent;
-    cursor: pointer;
+    cursor: pointer !important;
     display: flex;
     align-items: center;
+    pointer-events: auto;
     justify-content: center;
     margin-top: 10px;
     transition: all var(--transition-duration) var(--transition-timing);

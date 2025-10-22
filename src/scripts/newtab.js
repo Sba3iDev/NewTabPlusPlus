@@ -29,6 +29,7 @@ const STORAGE_LIMITS = {
     QUOTA_BYTES_PER_ITEM: 8192,
     LOCAL_STORAGE_KEY: "newtab_data",
 };
+let draggedElement = null;
 
 function getStorageSize(data) {
     return new TextEncoder().encode(JSON.stringify(data)).length;
@@ -226,6 +227,37 @@ function renderShortcuts(shortcuts) {
         shortcutWrapper.href = shortcut.url;
         shortcutWrapper.target = "_blank";
         shortcutWrapper.rel = "noopener noreferrer";
+        shortcutWrapper.draggable = true;
+        shortcutWrapper.setAttribute("data-shortcut-id", shortcut.id);
+        shortcutWrapper.addEventListener("dragstart", (e) => {
+            draggedElement = e.currentTarget;
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", shortcut.id);
+            e.currentTarget.classList.add("dragging");
+        });
+        shortcutWrapper.addEventListener("dragend", (e) => {
+            draggedElement = null;
+            e.currentTarget.classList.remove("dragging");
+        });
+        shortcutWrapper.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (draggedElement && e.currentTarget !== draggedElement) {
+                e.currentTarget.classList.add("drag-over");
+            }
+        });
+        shortcutWrapper.addEventListener("dragleave", (e) => {
+            e.currentTarget.classList.remove("drag-over");
+        });
+        shortcutWrapper.addEventListener("drop", async (e) => {
+            e.preventDefault();
+            e.currentTarget.classList.remove("drag-over");
+            const draggedId = e.dataTransfer.getData("text/plain");
+            const targetId = e.currentTarget.getAttribute("data-shortcut-id");
+            if (draggedId && targetId && draggedId !== targetId) {
+                await handleShortcutReorder(draggedId, targetId);
+            }
+        });
         const card = document.createElement("div");
         card.className = "shortcut-card";
         card.setAttribute("data-id", shortcut.id);
@@ -463,6 +495,22 @@ async function handleDeleteShortcut(id) {
         await chrome.storage.sync.set({ [STORAGE_KEYS.SHORTCUTS]: filtered });
         await refreshShortcuts();
     });
+}
+
+async function handleShortcutReorder(draggedId, targetId) {
+    try {
+        if (draggedId === targetId) return;
+        const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+        const draggedIndex = shortcuts.findIndex((s) => s.id === draggedId);
+        const targetIndex = shortcuts.findIndex((s) => s.id === targetId);
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        const [draggedShortcut] = shortcuts.splice(draggedIndex, 1);
+        shortcuts.splice(targetIndex, 0, draggedShortcut);
+        await chrome.storage.sync.set({ [STORAGE_KEYS.SHORTCUTS]: shortcuts });
+        await refreshShortcuts();
+    } catch (error) {
+        showErrorModal("Failed to reorder shortcuts. Please try again.");
+    }
 }
 
 function clearFormErrors(form) {

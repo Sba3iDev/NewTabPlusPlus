@@ -281,7 +281,7 @@ footer {
     flex-direction: column;
     width: max-content;
     box-shadow: var(--shadow-3);
-    z-index: 2000;
+    z-index: 3000;
 }
 
 .shortcut-dots-menu.show {

@@ -309,16 +309,16 @@ function renderShortcuts(shortcuts) {
             }
             dotsMenuIcon.src = useDark ? "icons/threeDotsIconDark.svg" : "icons/threeDotsIconLight.svg";
         });
+        const dotsMenuOverlay = document.createElement("div");
+        dotsMenuOverlay.className = "shortcut-dots-menu-overlay";
+        const dotsMenu = document.createElement("div");
+        dotsMenu.className = "shortcut-dots-menu";
         dotsMenuIcon.addEventListener("click", (e) => {
             e.stopPropagation();
             e.preventDefault();
             dotsMenuOverlay.classList.add("show");
             dotsMenu.classList.add("show");
         });
-        const dotsMenuOverlay = document.createElement("div");
-        dotsMenuOverlay.className = "shortcut-dots-menu-overlay";
-        const dotsMenu = document.createElement("div");
-        dotsMenu.className = "shortcut-dots-menu";
         dotsMenuOverlay.addEventListener("click", (e) => {
             if (e.target === dotsMenuOverlay) {
                 e.stopPropagation();
@@ -602,8 +602,9 @@ async function initialize() {
         await migrateStorage(CURRENT_VERSION);
         await initializeStorage();
         const data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
-        if (data[STORAGE_KEYS.SETTINGS] && !data[STORAGE_KEYS.SETTINGS].showSearch) {
-            document.getElementsByClassName("search-container").style.display = "none";
+        const searchContainer = document.querySelector(".search-container");
+        if (searchContainer && data[STORAGE_KEYS.SETTINGS] && !data[STORAGE_KEYS.SETTINGS].showSearch) {
+            searchContainer.style.display = "none";
         }
         document.documentElement.style.setProperty("--grid-columns", data[STORAGE_KEYS.SETTINGS].columns);
         renderHeader();
@@ -612,7 +613,10 @@ async function initialize() {
         document.addEventListener("keydown", (e) => {
             if (e.key === "/" && !e.target.matches("input")) {
                 e.preventDefault();
-                document.querySelector(".search-container input").focus();
+                const searchInput = document.querySelector(".search-container input");
+                if (searchInput) {
+                    searchInput.focus();
+                }
             }
         });
     } catch (error) {

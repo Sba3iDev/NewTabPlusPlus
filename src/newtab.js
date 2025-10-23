@@ -218,9 +218,14 @@ function renderHeader() {
 
 function renderShortcuts(shortcuts) {
     const app = document.getElementById("app");
-    app.innerHTML = "";
-    const grid = document.createElement("div");
-    grid.className = "shortcuts-grid";
+    let grid = app.querySelector(".shortcuts-grid");
+    if (!grid) {
+        grid = document.createElement("div");
+        grid.className = "shortcuts-grid";
+        app.appendChild(grid);
+    } else {
+        grid.innerHTML = "";
+    }
     shortcuts.forEach((shortcut) => {
         const shortcutWrapper = document.createElement("a");
         shortcutWrapper.className = "shortcut";
@@ -360,7 +365,6 @@ function renderShortcuts(shortcuts) {
         addButton.addEventListener("click", openAddModal);
         grid.appendChild(addButton);
     }
-    app.appendChild(grid);
 }
 
 function renderFooter() {
@@ -598,10 +602,19 @@ async function initialize() {
         await migrateStorage(CURRENT_VERSION);
         await initializeStorage();
         const data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
+        if (data[STORAGE_KEYS.SETTINGS] && !data[STORAGE_KEYS.SETTINGS].showSearch) {
+            document.getElementsByClassName("search-container").style.display = "none";
+        }
         document.documentElement.style.setProperty("--grid-columns", data[STORAGE_KEYS.SETTINGS].columns);
         renderHeader();
         renderShortcuts(data[STORAGE_KEYS.SHORTCUTS]);
         renderFooter();
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "/" && !e.target.matches("input")) {
+                e.preventDefault();
+                document.querySelector(".search-container input").focus();
+            }
+        });
     } catch (error) {
         console.error("Initialization failed:", error);
         document.getElementById("app").innerHTML = `

@@ -72,6 +72,67 @@ main {
     padding: var(--spacing-large) 150px;
 }
 
+.search-container {
+    max-width: 600px;
+    margin: 0 auto var(--spacing-large) auto;
+    padding: 0 var(--spacing-medium);
+}
+
+.search-container form {
+    display: flex;
+    gap: var(--spacing-small);
+    align-items: center;
+    background-color: var(--hover-color);
+    border: 1px solid var(--color-secondary);
+    border-radius: 24px;
+    padding: var(--spacing-small);
+    transition: all var(--transition-duration) var(--transition-timing);
+}
+
+.search-container input[type="text"] {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--color-text);
+    font-family: var(--font-primary);
+    font-size: var(--font-size-base);
+    outline: none;
+    padding: var(--spacing-small);
+}
+
+.search-container button[type="submit"] {
+    background-color: var(--color-primary);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    transition: all var(--transition-duration) var(--transition-timing);
+}
+
+.search-container button[type="submit"]:hover {
+    filter: brightness(1.1);
+}
+
+.search-container button[type="submit"]::before {
+    content: "🔍";
+}
+
+.search-container form:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.search-container input::placeholder {
+    color: var(--color-secondary);
+    opacity: 0.7;
+}
+
 footer {
     padding: var(--spacing-medium);
     text-align: center;
@@ -419,6 +480,25 @@ footer {
 }
 
 @media (max-width: 768px) {
+    .search-container {
+        max-width: 100%;
+    }
+
+    .search-container form {
+        padding: calc(var(--spacing-unit) * 0.5);
+    }
+
+    .search-container input[type="text"] {
+        font-size: 14px;
+        padding: calc(var(--spacing-unit) * 0.5);
+    }
+
+    .search-container button[type="submit"] {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
     .shortcuts-grid {
         grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
     }

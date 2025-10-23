@@ -6,5 +6,8 @@
     "permissions": ["storage"],
     "chrome_url_overrides": {
         "newtab": "src/newtab.html"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; frame-src https://cse.google.com https://www.google.com;"
     }
 }

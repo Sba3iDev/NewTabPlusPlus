@@ -606,19 +606,35 @@ async function initialize() {
         if (searchContainer && data[STORAGE_KEYS.SETTINGS] && !data[STORAGE_KEYS.SETTINGS].showSearch) {
             searchContainer.style.display = "none";
         }
+        const searchForm = document.querySelector(".search-container form");
+        if (searchForm) {
+            searchForm.addEventListener("submit", (e) => {
+                const input = searchForm.querySelector("input[name='q']");
+                if (!input) {
+                    return;
+                }
+                let query = input.value.trim();
+                if (!query) {
+                    e.preventDefault();
+                    input.value = "";
+                    return;
+                }
+                if (query.includes(".") && !query.includes(" ") && !query.startsWith("http")) {
+                    query = "https://" + query;
+                }
+                if (isValidUrl(query)) {
+                    e.preventDefault();
+                    location.assign(query);
+                }
+                setTimeout(() => {
+                    input.value = "";
+                }, 0);
+            });
+        }
         document.documentElement.style.setProperty("--grid-columns", data[STORAGE_KEYS.SETTINGS].columns);
         renderHeader();
         renderShortcuts(data[STORAGE_KEYS.SHORTCUTS]);
         renderFooter();
-        document.addEventListener("keydown", (e) => {
-            if (e.key === "/" && !e.target.matches("input")) {
-                e.preventDefault();
-                const searchInput = document.querySelector(".search-container input");
-                if (searchInput) {
-                    searchInput.focus();
-                }
-            }
-        });
     } catch (error) {
         console.error("Initialization failed:", error);
         document.getElementById("app").innerHTML = `

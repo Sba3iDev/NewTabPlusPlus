@@ -17,7 +17,8 @@
     --modal-color: #ffffff;
     --color-error: #b00020;
     --hover-color: #ededed;
-    --color-dots: #d8d8d9;
+    --bg-color-dots: #d8d8d9;
+    --fill-color-dots: #80868b;
     --font-primary: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-size-base: 16px;
     --line-height-base: 1.5;
@@ -44,7 +45,8 @@
         --card-color: #444746;
         --modal-color: #292a2d;
         --hover-color: #38393b;
-        --color-dots: #5c5c5c;
+        --bg-color-dots: #5c5c5c;
+        --fill-color-dots: #ffffff;
     }
 }
 
@@ -199,6 +201,7 @@ footer {
     align-items: center;
     justify-content: center;
     padding: 1px;
+    pointer-events: none;
 }
 
 .shortcut-icon img {
@@ -224,6 +227,7 @@ footer {
     right: 3px;
     width: 24px;
     height: 24px;
+    fill: var(--fill-color-dots);
     padding: 1px;
     border-radius: 50%;
     display: none;
@@ -236,7 +240,7 @@ footer {
 }
 
 .shortcut-dots-menu-icon:hover {
-    background-color: var(--color-dots);
+    background-color: var(--bg-color-dots);
 }
 
 .shortcut:hover .shortcut-dots-menu-icon {

@@ -29,7 +29,6 @@ const STORAGE_LIMITS = {
     QUOTA_BYTES_PER_ITEM: 8192,
     LOCAL_STORAGE_KEY: "newtab_data",
 };
-let draggedElement = null;
 
 function getStorageSize(data) {
     return new TextEncoder().encode(JSON.stringify(data)).length;
@@ -217,6 +216,7 @@ function renderHeader() {
 }
 
 function renderShortcuts(shortcuts) {
+    let draggedElement = null;
     const app = document.getElementById("app");
     let grid = app.querySelector(".shortcuts-grid");
     if (!grid) {
@@ -280,35 +280,18 @@ function renderShortcuts(shortcuts) {
         const title = document.createElement("div");
         title.className = "shortcut-title";
         title.textContent = shortcut.title;
-        const dotsMenuIcon = document.createElement("img");
-        dotsMenuIcon.className = "shortcut-dots-menu-icon";
-        dotsMenuIcon.src = "icons/threeDotsIconLight.svg";
-        chrome.storage.sync.get(STORAGE_KEYS.SETTINGS, (result) => {
-            if (chrome.runtime.lastError) {
-                showErrorModal("Failed to fetch settings for theme:");
-                const useDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-                dotsMenuIcon.src = useDark ? "icons/threeDotsIconDark.svg" : "icons/threeDotsIconLight.svg";
-                return;
-            }
-            const settings = (result && result[STORAGE_KEYS.SETTINGS]) || DEFAULT_SETTINGS;
-            const theme = settings.theme || DEFAULT_SETTINGS.theme;
-            let useDark;
-            if (theme === "dark") {
-                useDark = true;
-            } else if (theme === "light") {
-                useDark = false;
-            } else {
-                useDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-                if (window.matchMedia) {
-                    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-                    const onChange = (e) => {
-                        dotsMenuIcon.src = e.matches ? "icons/threeDotsIconDark.svg" : "icons/threeDotsIconLight.svg";
-                    };
-                    mq.addEventListener("change", onChange);
-                }
-            }
-            dotsMenuIcon.src = useDark ? "icons/threeDotsIconDark.svg" : "icons/threeDotsIconLight.svg";
-        });
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const dotsMenuIcon = document.createElementNS(SVG_NS, "svg");
+        dotsMenuIcon.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        dotsMenuIcon.setAttribute("width", "24");
+        dotsMenuIcon.setAttribute("height", "24");
+        dotsMenuIcon.classList.add("shortcut-dots-menu-icon");
+        const path = document.createElementNS(SVG_NS, "path");
+        path.setAttribute(
+            "d",
+            "M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+        );
+        dotsMenuIcon.appendChild(path);
         const dotsMenuOverlay = document.createElement("div");
         dotsMenuOverlay.className = "shortcut-dots-menu-overlay";
         const dotsMenu = document.createElement("div");

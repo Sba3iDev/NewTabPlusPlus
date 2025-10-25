@@ -235,6 +235,11 @@ function renderShortcuts(shortcuts) {
         shortcutWrapper.draggable = true;
         shortcutWrapper.setAttribute("data-shortcut-id", shortcut.id);
         shortcutWrapper.addEventListener("dragstart", (e) => {
+            const isMenuOpen = document.querySelector(".shortcut-dots-menu-overlay.show");
+            if (isMenuOpen) {
+                e.preventDefault();
+                return;
+            }
             draggedElement = e.currentTarget;
             e.dataTransfer.effectAllowed = "move";
             e.dataTransfer.setData("text/plain", shortcut.id);

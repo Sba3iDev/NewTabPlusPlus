@@ -2,9 +2,12 @@ const STORAGE_KEYS = {
     SETTINGS: "settings",
     SHORTCUTS: "shortcuts",
     VERSION: "version",
+    SEARCH_HISTORY: "searchHistory",
 };
 const CURRENT_VERSION = "1.0.0";
 const MAX_SHORTCUTS = 20;
+const MAX_SEARCH_HISTORY = 50;
+const MAX_DISPLAYED_HISTORY = 8;
 const DEFAULT_SETTINGS = {
     theme: "system",
     columns: 4,
@@ -87,6 +90,87 @@ function isValidUrl(url) {
     } catch (e) {
         return false;
     }
+}
+
+async function getSearchHistory() {
+    try {
+        const result = await chrome.storage.local.get(STORAGE_KEYS.SEARCH_HISTORY);
+        return result[STORAGE_KEYS.SEARCH_HISTORY] || [];
+    } catch (error) {
+        console.error("Error retrieving search history:", error);
+        return [];
+    }
+}
+
+async function saveSearchHistory(history) {
+    if (!Array.isArray(history)) {
+        console.error("Invalid history data:", history);
+        return;
+    }
+    if (history.length > MAX_SEARCH_HISTORY) {
+        history = history.slice(0, MAX_SEARCH_HISTORY);
+    }
+    try {
+        await chrome.storage.local.set({ [STORAGE_KEYS.SEARCH_HISTORY]: history });
+    } catch (error) {
+        console.error("Error saving search history:", error);
+    }
+}
+
+async function addToSearchHistory(query) {
+    const history = await getSearchHistory();
+    const existingIndex = history.findIndex((entry) => entry.query.toLowerCase() === query.toLowerCase());
+    if (existingIndex !== -1) {
+        history.splice(existingIndex, 1);
+    }
+    history.unshift({ query, timestamp: Date.now() });
+    if (history.length > MAX_SEARCH_HISTORY) {
+        history.splice(MAX_SEARCH_HISTORY);
+    }
+    await saveSearchHistory(history);
+}
+
+function renderSearchHistory(history, container) {
+    container.innerHTML = "";
+    if (!history || history.length === 0) {
+        container.style.display = "none";
+        document.querySelector(".search-container form").classList.remove("history-style");
+        return;
+    }
+    const displayedHistory = history.slice(0, MAX_DISPLAYED_HISTORY);
+    displayedHistory.forEach((entry) => {
+        const item = document.createElement("div");
+        item.className = "history-item";
+        item.setAttribute("role", "option");
+        item.setAttribute("data-query", entry.query);
+        const icon = document.createElement("div");
+        icon.className = "history-icon";
+        icon.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+        </svg>`;
+        const querySpan = document.createElement("span");
+        querySpan.className = "history-query";
+        querySpan.textContent = entry.query;
+        item.appendChild(icon);
+        item.appendChild(querySpan);
+        item.addEventListener("click", () => {
+            const input = document.querySelector(".search-container input[name='q']");
+            if (input) {
+                input.value = entry.query;
+                input.form.submit();
+            }
+        });
+        container.appendChild(item);
+    });
+    container.style.display = "block";
+    document.querySelector(".search-container form").classList.add("history-style");
+}
+
+function hideSearchHistory(container) {
+    container.style.display = "none";
+    document.querySelector(".search-container form").classList.remove("history-style");
+    const selectedItems = container.querySelectorAll(".history-item.selected");
+    selectedItems.forEach((item) => item.classList.remove("selected"));
 }
 
 function createModal(title, content) {
@@ -584,6 +668,8 @@ async function refreshShortcuts() {
 
 async function initialize() {
     try {
+        let selectedHistoryIndex = -1;
+        let blurTimeoutId = null;
         if (typeof chrome === "undefined" || !chrome.storage) {
             throw new Error("Not running in extension context");
         }
@@ -596,7 +682,7 @@ async function initialize() {
         }
         const searchForm = document.querySelector(".search-container form");
         if (searchForm) {
-            searchForm.addEventListener("submit", (e) => {
+            searchForm.addEventListener("submit", async (e) => {
                 const input = searchForm.querySelector("input[name='q']");
                 if (!input) {
                     return;
@@ -613,10 +699,76 @@ async function initialize() {
                 if (isValidUrl(query)) {
                     e.preventDefault();
                     location.assign(query);
+                } else {
+                    await addToSearchHistory(query);
                 }
                 setTimeout(() => {
                     input.value = "";
                 }, 0);
+            });
+        }
+        let historyDropdown = document.querySelector(".search-history-dropdown");
+        if (!historyDropdown) {
+            historyDropdown = document.createElement("div");
+            historyDropdown.className = "search-history-dropdown";
+            historyDropdown.setAttribute("role", "listbox");
+            historyDropdown.setAttribute("aria-label", "Search history");
+            searchContainer.appendChild(historyDropdown);
+        }
+        const searchInput = searchForm.querySelector("input[name='q']");
+        if (searchInput) {
+            searchInput.addEventListener("focus", async () => {
+                if (blurTimeoutId) {
+                    clearTimeout(blurTimeoutId);
+                    blurTimeoutId = null;
+                }
+                const history = await getSearchHistory();
+                renderSearchHistory(history, historyDropdown);
+                selectedHistoryIndex = -1;
+            });
+            searchInput.addEventListener("blur", () => {
+                blurTimeoutId = setTimeout(() => {
+                    hideSearchHistory(historyDropdown);
+                    selectedHistoryIndex = -1;
+                }, 0);
+            });
+            searchInput.addEventListener("keydown", async (e) => {
+                const items = historyDropdown.querySelectorAll(".history-item");
+                if (items.length === 0) return;
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    selectedHistoryIndex = (selectedHistoryIndex + 1) % items.length;
+                    items.forEach((item, index) => {
+                        if (index === selectedHistoryIndex) {
+                            item.classList.add("selected");
+                        } else {
+                            item.classList.remove("selected");
+                        }
+                    });
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    selectedHistoryIndex = selectedHistoryIndex <= 0 ? items.length - 1 : selectedHistoryIndex - 1;
+                    items.forEach((item, index) => {
+                        if (index === selectedHistoryIndex) {
+                            item.classList.add("selected");
+                        } else {
+                            item.classList.remove("selected");
+                        }
+                    });
+                } else if (e.key === "Enter" && selectedHistoryIndex >= 0) {
+                    const history = await getSearchHistory();
+                    const item = history[selectedHistoryIndex];
+                    e.preventDefault();
+                    const selectedItem = items[selectedHistoryIndex];
+                    if (selectedItem) {
+                        searchInput.value = selectedItem.getAttribute("data-query");
+                        searchForm.submit();
+                    }
+                    await addToSearchHistory(item.query);
+                } else if (e.key === "Escape") {
+                    hideSearchHistory(historyDropdown);
+                    selectedHistoryIndex = -1;
+                }
             });
         }
         document.documentElement.style.setProperty("--grid-columns", data[STORAGE_KEYS.SETTINGS].columns);

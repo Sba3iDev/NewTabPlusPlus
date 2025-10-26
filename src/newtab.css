@@ -139,7 +139,6 @@ main {
     border-top: none;
     border-radius: 0 0 25px 25px;
     box-shadow: 0 1px 6px #3c3c3c44;
-    max-height: 400px;
     overflow-y: auto;
     overflow-x: hidden;
     display: none;
@@ -183,6 +182,34 @@ main {
     text-overflow: ellipsis;
     white-space: nowrap;
     color: #202124;
+}
+
+.delete-history-item {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    fill: #5f6368;
+    opacity: 0;
+    transition: opacity 150ms ease, background-color 150ms ease;
+    margin-left: auto;
+}
+
+.delete-history-item:hover {
+    background-color: #d5d5d7;
+}
+
+.history-item:hover .delete-history-item {
+    opacity: 1;
+}
+
+.history-item.selected .delete-history-item {
+    opacity: 1;
 }
 
 footer {
@@ -582,12 +609,12 @@ footer {
         padding: 10px 12px;
     }
 
-    .history-icon {
+    .history-item .history-icon {
         width: 18px;
         height: 18px;
     }
 
-    .history-query {
+    .history-item .history-query {
         font-size: 13px;
     }
 

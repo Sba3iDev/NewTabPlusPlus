@@ -153,13 +153,30 @@ function renderSearchHistory(history, container) {
         querySpan.textContent = entry.query;
         item.appendChild(icon);
         item.appendChild(querySpan);
-        item.addEventListener("click", () => {
+        item.addEventListener("click", async () => {
             const input = document.querySelector(".search-container input[name='q']");
             if (input) {
                 input.value = entry.query;
+                await addToSearchHistory(entry.query);
                 input.form.submit();
             }
         });
+        const deleteHistoryItem = document.createElement("button");
+        deleteHistoryItem.className = "delete-history-item";
+        deleteHistoryItem.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>`;
+        deleteHistoryItem.title = "Remove from history";
+        deleteHistoryItem.addEventListener("click", async (e) => {
+            setTimeout(() => {
+                document.querySelector(".search-container input[name='q']").focus();
+            }, 0);
+            e.stopPropagation();
+            const updatedHistory = history.filter((h) => h.query !== entry.query);
+            await saveSearchHistory(updatedHistory);
+            renderSearchHistory(updatedHistory, container);
+        });
+        item.appendChild(deleteHistoryItem);
         container.appendChild(item);
     });
     container.style.display = "block";
@@ -730,7 +747,7 @@ async function initialize() {
                 blurTimeoutId = setTimeout(() => {
                     hideSearchHistory(historyDropdown);
                     selectedHistoryIndex = -1;
-                }, 0);
+                }, 100);
             });
             searchInput.addEventListener("keydown", async (e) => {
                 const items = historyDropdown.querySelectorAll(".history-item");
@@ -756,15 +773,14 @@ async function initialize() {
                         }
                     });
                 } else if (e.key === "Enter" && selectedHistoryIndex >= 0) {
-                    const history = await getSearchHistory();
-                    const item = history[selectedHistoryIndex];
                     e.preventDefault();
                     const selectedItem = items[selectedHistoryIndex];
                     if (selectedItem) {
-                        searchInput.value = selectedItem.getAttribute("data-query");
+                        const query = selectedItem.getAttribute("data-query");
+                        searchInput.value = query;
+                        await addToSearchHistory(query);
                         searchForm.submit();
                     }
-                    await addToSearchHistory(item.query);
                 } else if (e.key === "Escape") {
                     hideSearchHistory(historyDropdown);
                     selectedHistoryIndex = -1;

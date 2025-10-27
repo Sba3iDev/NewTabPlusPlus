@@ -755,6 +755,9 @@ async function initialize() {
                 if (e.key === "ArrowDown") {
                     e.preventDefault();
                     selectedHistoryIndex = (selectedHistoryIndex + 1) % items.length;
+                    document.querySelector(".search-container input[name='q']").value = (await getSearchHistory())[
+                        selectedHistoryIndex
+                    ].query;
                     items.forEach((item, index) => {
                         if (index === selectedHistoryIndex) {
                             item.classList.add("selected");
@@ -765,6 +768,9 @@ async function initialize() {
                 } else if (e.key === "ArrowUp") {
                     e.preventDefault();
                     selectedHistoryIndex = selectedHistoryIndex <= 0 ? items.length - 1 : selectedHistoryIndex - 1;
+                    document.querySelector(".search-container input[name='q']").value = (await getSearchHistory())[
+                        selectedHistoryIndex
+                    ].query;
                     items.forEach((item, index) => {
                         if (index === selectedHistoryIndex) {
                             item.classList.add("selected");
@@ -784,6 +790,11 @@ async function initialize() {
                 } else if (e.key === "Escape") {
                     hideSearchHistory(historyDropdown);
                     selectedHistoryIndex = -1;
+                } else {
+                    if (selectedHistoryIndex >= 0) {
+                        selectedHistoryIndex = -1;
+                        items.forEach((item) => item.classList.remove("selected"));
+                    }
                 }
             });
         }

@@ -335,6 +335,31 @@ function renderShortcuts(shortcuts) {
         shortcutWrapper.rel = "noopener noreferrer";
         shortcutWrapper.draggable = true;
         shortcutWrapper.setAttribute("data-shortcut-id", shortcut.id);
+        shortcutWrapper.addEventListener("click", (e) => {
+            const isMenuOpen = document.querySelector(".shortcut-dots-menu-overlay.show");
+            if (isMenuOpen) {
+                e.preventDefault();
+                e.stopPropagation();
+                dotsMenuOverlay.classList.remove("show");
+                dotsMenu.classList.remove("show");
+            }
+        });
+        shortcutWrapper.addEventListener("auxclick", (e) => {
+            const isMenuOpen = document.querySelector(".shortcut-dots-menu-overlay.show");
+            if (isMenuOpen) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+        shortcutWrapper.addEventListener("contextmenu", (e) => {
+            const isMenuOpen = document.querySelector(".shortcut-dots-menu-overlay.show");
+            if (isMenuOpen) {
+                e.preventDefault();
+                e.stopPropagation();
+                dotsMenuOverlay.classList.remove("show");
+                dotsMenu.classList.remove("show");
+            }
+        });
         shortcutWrapper.addEventListener("dragstart", (e) => {
             const isMenuOpen = document.querySelector(".shortcut-dots-menu-overlay.show");
             if (isMenuOpen) {
@@ -402,6 +427,12 @@ function renderShortcuts(shortcuts) {
         dotsMenuOverlay.className = "shortcut-dots-menu-overlay";
         const dotsMenu = document.createElement("div");
         dotsMenu.className = "shortcut-dots-menu";
+        dotsMenu.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            dotsMenuOverlay.classList.remove("show");
+            dotsMenu.classList.remove("show");
+        });
         dotsMenuIcon.addEventListener("click", (e) => {
             e.stopPropagation();
             e.preventDefault();

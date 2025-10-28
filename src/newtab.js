@@ -851,6 +851,10 @@ async function initialize() {
                 }, 200);
             });
             searchInput.addEventListener("blur", () => {
+                if (suggestionTimeoutId) {
+                    clearTimeout(suggestionTimeoutId);
+                    suggestionTimeoutId = null;
+                }
                 blurTimeoutId = setTimeout(() => {
                     hideSearchHistory(historyDropdown);
                     selectedHistoryIndex = -1;

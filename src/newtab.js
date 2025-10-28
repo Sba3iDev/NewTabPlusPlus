@@ -7,7 +7,7 @@ const STORAGE_KEYS = {
 const CURRENT_VERSION = "1.0.0";
 const MAX_SHORTCUTS = 20;
 const MAX_SEARCH_HISTORY = 50;
-const MAX_DISPLAYED_HISTORY = 8;
+const MAX_DISPLAYED_ITEMS = 8;
 const DEFAULT_SETTINGS = {
     theme: "system",
     columns: 4,
@@ -130,6 +130,25 @@ async function addToSearchHistory(query) {
     await saveSearchHistory(history);
 }
 
+async function fetchSearchSuggestions(query) {
+    if (!query || query.trim().length === 0) {
+        return [];
+    }
+    try {
+        const response = await chrome.runtime.sendMessage({
+            action: "fetchSuggestions",
+            query: query,
+        });
+        if (response && response.success) {
+            return response.suggestions || [];
+        }
+        return [];
+    } catch (error) {
+        console.error("Error fetching search suggestions:", error);
+        return [];
+    }
+}
+
 function renderSearchHistory(history, container) {
     container.innerHTML = "";
     if (!history || history.length === 0) {
@@ -137,7 +156,7 @@ function renderSearchHistory(history, container) {
         document.querySelector(".search-container form").classList.remove("history-style");
         return;
     }
-    const displayedHistory = history.slice(0, MAX_DISPLAYED_HISTORY);
+    const displayedHistory = history.slice(0, MAX_DISPLAYED_ITEMS);
     displayedHistory.forEach((entry) => {
         const item = document.createElement("div");
         item.className = "history-item";
@@ -177,6 +196,43 @@ function renderSearchHistory(history, container) {
             renderSearchHistory(updatedHistory, container);
         });
         item.appendChild(deleteHistoryItem);
+        container.appendChild(item);
+    });
+    container.style.display = "block";
+    document.querySelector(".search-container form").classList.add("history-style");
+}
+
+function renderSearchSuggestions(suggestions, container) {
+    container.innerHTML = "";
+    if (!suggestions || suggestions.length === 0) {
+        container.style.display = "none";
+        document.querySelector(".search-container form").classList.remove("history-style");
+        return;
+    }
+    const displayedSuggestions = suggestions.slice(0, MAX_DISPLAYED_ITEMS);
+    displayedSuggestions.forEach((suggestion) => {
+        const item = document.createElement("div");
+        item.className = "history-item";
+        item.setAttribute("role", "option");
+        item.setAttribute("data-query", suggestion);
+        const icon = document.createElement("div");
+        icon.className = "history-icon";
+        icon.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20">
+            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>`;
+        const querySpan = document.createElement("span");
+        querySpan.className = "history-query";
+        querySpan.textContent = suggestion;
+        item.appendChild(icon);
+        item.appendChild(querySpan);
+        item.addEventListener("click", async () => {
+            const input = document.querySelector(".search-container input[name='q']");
+            if (input) {
+                input.value = suggestion;
+                await addToSearchHistory(suggestion);
+                input.form.submit();
+            }
+        });
         container.appendChild(item);
     });
     container.style.display = "block";
@@ -718,6 +774,7 @@ async function initialize() {
     try {
         let selectedHistoryIndex = -1;
         let blurTimeoutId = null;
+        let suggestionTimeoutId = null;
         if (typeof chrome === "undefined" || !chrome.storage) {
             throw new Error("Not running in extension context");
         }
@@ -770,9 +827,28 @@ async function initialize() {
                     clearTimeout(blurTimeoutId);
                     blurTimeoutId = null;
                 }
-                const history = await getSearchHistory();
-                renderSearchHistory(history, historyDropdown);
+                if (!searchInput.value.trim()) {
+                    const history = await getSearchHistory();
+                    renderSearchHistory(history, historyDropdown);
+                }
                 selectedHistoryIndex = -1;
+            });
+            searchInput.addEventListener("input", async (e) => {
+                const query = e.target.value.trim();
+                if (suggestionTimeoutId) {
+                    clearTimeout(suggestionTimeoutId);
+                }
+                if (!query) {
+                    const history = await getSearchHistory();
+                    renderSearchHistory(history, historyDropdown);
+                    selectedHistoryIndex = -1;
+                    return;
+                }
+                suggestionTimeoutId = setTimeout(async () => {
+                    const suggestions = await fetchSearchSuggestions(query);
+                    renderSearchSuggestions(suggestions, historyDropdown);
+                    selectedHistoryIndex = -1;
+                }, 200);
             });
             searchInput.addEventListener("blur", () => {
                 blurTimeoutId = setTimeout(() => {
@@ -786,9 +862,8 @@ async function initialize() {
                 if (e.key === "ArrowDown") {
                     e.preventDefault();
                     selectedHistoryIndex = (selectedHistoryIndex + 1) % items.length;
-                    document.querySelector(".search-container input[name='q']").value = (await getSearchHistory())[
-                        selectedHistoryIndex
-                    ].query;
+                    const selectedQuery = items[selectedHistoryIndex].getAttribute("data-query");
+                    searchInput.value = selectedQuery;
                     items.forEach((item, index) => {
                         if (index === selectedHistoryIndex) {
                             item.classList.add("selected");
@@ -799,9 +874,8 @@ async function initialize() {
                 } else if (e.key === "ArrowUp") {
                     e.preventDefault();
                     selectedHistoryIndex = selectedHistoryIndex <= 0 ? items.length - 1 : selectedHistoryIndex - 1;
-                    document.querySelector(".search-container input[name='q']").value = (await getSearchHistory())[
-                        selectedHistoryIndex
-                    ].query;
+                    const selectedQuery = items[selectedHistoryIndex].getAttribute("data-query");
+                    searchInput.value = selectedQuery;
                     items.forEach((item, index) => {
                         if (index === selectedHistoryIndex) {
                             item.classList.add("selected");

@@ -423,6 +423,7 @@ footer {
     align-items: center;
     justify-content: center;
     z-index: 2000;
+    padding: var(--spacing-medium);
 }
 
 .modal-container {
@@ -432,6 +433,8 @@ footer {
     width: 100%;
     max-width: 400px;
     box-shadow: var(--shadow-2);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-header {
@@ -460,6 +463,7 @@ footer {
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-medium);
+    flex-wrap: wrap;
 }
 
 .confirm-message {
@@ -507,6 +511,7 @@ footer {
     font-weight: bold;
     cursor: pointer;
     transition: all var(--transition-duration) var(--transition-timing);
+    white-space: nowrap;
 }
 
 .btn:disabled {
@@ -557,13 +562,39 @@ footer {
     border: 0;
 }
 
+@media (max-width: 1400px) {
+    main {
+        padding: var(--spacing-large) 80px;
+    }
+}
+
+@media (max-width: 1024px) {
+    main {
+        padding: var(--spacing-large) 40px;
+    }
+
+    .search-container {
+        margin: 60px auto var(--spacing-large) auto;
+    }
+
+    .shortcuts-grid {
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    }
+}
+
 @media (max-width: 768px) {
+    main {
+        padding: var(--spacing-medium) var(--spacing-medium);
+    }
+
     .search-container {
         max-width: 100%;
+        margin: 40px auto var(--spacing-medium) auto;
+        padding: 0 var(--spacing-small);
     }
 
     .search-container form {
-        padding: calc(var(--spacing-unit) * 0.5) var(--spacing-medium);
+        padding: calc(var(--spacing-unit) * 0.75) var(--spacing-medium);
     }
 
     .search-container input[type="text"] {
@@ -571,42 +602,21 @@ footer {
     }
 
     .search-icon {
-        width: 18px;
-        height: 18px;
-        margin-right: calc(var(--spacing-unit) * 0.5);
-    }
-
-    .search-actions {
-        gap: calc(var(--spacing-unit) * 0.5);
-        margin-left: calc(var(--spacing-unit) * 0.5);
-    }
-
-    .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    }
-
-    .shortcut-card,
-    .shortcut-add-button {
-        width: 64px;
-        height: 64px;
-    }
-
-    .shortcut-icon {
-        width: 40px;
-        height: 40px;
-    }
-
-    .shortcut-title {
-        font-size: 0.7rem;
+        width: 20px;
+        height: 20px;
+        margin-right: calc(var(--spacing-unit) * 0.75);
     }
 
     .search-history-dropdown {
+        left: 8px;
+        right: 8px;
+        width: calc(100% - 16px);
         padding: 4px 0;
-        max-height: 300px;
     }
 
     .history-item {
         padding: 10px 12px;
+        gap: 10px;
     }
 
     .history-item .history-icon {
@@ -618,16 +628,179 @@ footer {
         font-size: 13px;
     }
 
+    .delete-history-item {
+        width: 28px;
+        height: 28px;
+        opacity: 1;
+    }
+
+    .shortcuts-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: var(--spacing-small);
+        padding: var(--spacing-small);
+    }
+
+    .shortcut-card,
+    .shortcut-add-button {
+        width: 56px;
+        height: 56px;
+    }
+
+    .shortcut-icon {
+        width: 28px;
+        height: 28px;
+    }
+
+    .shortcut-title {
+        font-size: 0.7rem;
+        max-width: 80px;
+    }
+
+    .shortcut-dots-menu-icon {
+        opacity: 1;
+        display: block;
+    }
+
+    .modal-overlay {
+        padding: var(--spacing-small);
+    }
+
+    .modal-container {
+        padding: var(--spacing-medium);
+        max-width: 100%;
+    }
+
+    .modal-header h2 {
+        font-size: 1.125rem;
+    }
+
+    .modal-footer {
+        gap: var(--spacing-small);
+    }
+
+    .btn {
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
     .search-history-dropdown::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
     }
 
     .search-history-dropdown::-webkit-scrollbar-thumb {
         background: #dadce0;
-        border-radius: 4px;
+        border-radius: 3px;
     }
 
     .search-history-dropdown::-webkit-scrollbar-thumb:hover {
         background: #bdc1c6;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-container {
+        margin: 30px auto var(--spacing-medium) auto;
+    }
+
+    .search-container form {
+        padding: calc(var(--spacing-unit) * 0.5) var(--spacing-small);
+        border-radius: 24px;
+    }
+
+    .search-container form.history-style {
+        border-radius: 20px 20px 0 0;
+    }
+
+    .search-history-dropdown {
+        border-radius: 0 0 20px 20px;
+    }
+
+    .shortcuts-grid {
+        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    }
+
+    .shortcut-card,
+    .shortcut-add-button {
+        width: 52px;
+        height: 52px;
+    }
+
+    .shortcut-icon {
+        width: 26px;
+        height: 26px;
+    }
+
+    .shortcut-title {
+        font-size: 0.65rem;
+        max-width: 70px;
+    }
+
+    .shortcut-add-button::before {
+        font-size: 1.75rem;
+    }
+
+    .modal-container {
+        padding: var(--spacing-medium);
+    }
+
+    .modal-header h2 {
+        font-size: 1rem;
+    }
+
+    .btn {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .form-input {
+        padding: 10px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 360px) {
+    .shortcuts-grid {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    }
+
+    .shortcut-card,
+    .shortcut-add-button {
+        width: 48px;
+        height: 48px;
+    }
+
+    .shortcut-icon {
+        width: 24px;
+        height: 24px;
+    }
+
+    .shortcut-title {
+        font-size: 0.6rem;
+        max-width: 60px;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .shortcut-dots-menu-icon {
+        display: block;
+        opacity: 1;
+    }
+
+    .delete-history-item {
+        opacity: 1;
+    }
+}
+
+@media (min-width: 1920px) {
+    main {
+        padding: var(--spacing-large) 200px;
+    }
+
+    .search-container {
+        max-width: 800px;
+    }
+
+    .shortcuts-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     }
 }

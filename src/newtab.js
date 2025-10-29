@@ -134,7 +134,7 @@ function filterSearchHistory(history, query) {
     if (!query || query.trim() === "") {
         return history;
     }
-    return history.filter((entry) => entry.query.toLowerCase().slice(0, query.length) === query);
+    return history.filter((entry) => entry.query.toLowerCase().slice(0, query.length) === query.toLowerCase());
 }
 
 async function fetchSearchSuggestions(query) {
@@ -154,98 +154,6 @@ async function fetchSearchSuggestions(query) {
         console.error("Error fetching search suggestions:", error);
         return [];
     }
-}
-
-function renderSearchHistory(history, container) {
-    container.innerHTML = "";
-    if (!history || history.length === 0) {
-        container.style.display = "none";
-        document.querySelector(".search-container form").classList.remove("history-style");
-        return;
-    }
-    const displayedHistory = history.slice(0, MAX_DISPLAYED_ITEMS);
-    displayedHistory.forEach((entry) => {
-        const item = document.createElement("div");
-        item.className = "history-item";
-        item.setAttribute("role", "option");
-        item.setAttribute("data-query", entry.query);
-        const icon = document.createElement("div");
-        icon.className = "history-icon";
-        icon.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
-        </svg>`;
-        const querySpan = document.createElement("span");
-        querySpan.className = "history-query";
-        querySpan.textContent = entry.query;
-        item.appendChild(icon);
-        item.appendChild(querySpan);
-        item.addEventListener("click", async () => {
-            const input = document.querySelector(".search-container input[name='q']");
-            if (input) {
-                input.value = entry.query;
-                await addToSearchHistory(entry.query);
-                input.form.submit();
-            }
-        });
-        const deleteHistoryItem = document.createElement("button");
-        deleteHistoryItem.className = "delete-history-item";
-        deleteHistoryItem.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </svg>`;
-        deleteHistoryItem.title = "Remove from history";
-        deleteHistoryItem.addEventListener("click", async (e) => {
-            setTimeout(() => {
-                document.querySelector(".search-container input[name='q']").focus();
-            }, 0);
-            e.stopPropagation();
-            const updatedHistory = history.filter((h) => h.query !== entry.query);
-            await saveSearchHistory(updatedHistory);
-            const currentQuery = document.querySelector(".search-container input[name='q']").value.trim();
-            const filtered = filterSearchHistory(updatedHistory, currentQuery);
-            renderSearchHistory(filtered, container);
-        });
-        item.appendChild(deleteHistoryItem);
-        container.appendChild(item);
-    });
-    container.style.display = "block";
-    document.querySelector(".search-container form").classList.add("history-style");
-}
-
-function renderSearchSuggestions(suggestions, container) {
-    container.innerHTML = "";
-    if (!suggestions || suggestions.length === 0) {
-        container.style.display = "none";
-        document.querySelector(".search-container form").classList.remove("history-style");
-        return;
-    }
-    const displayedSuggestions = suggestions.slice(0, MAX_DISPLAYED_ITEMS);
-    displayedSuggestions.forEach((suggestion) => {
-        const item = document.createElement("div");
-        item.className = "history-item";
-        item.setAttribute("role", "option");
-        item.setAttribute("data-query", suggestion);
-        const icon = document.createElement("div");
-        icon.className = "history-icon";
-        icon.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20">
-            <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-        </svg>`;
-        const querySpan = document.createElement("span");
-        querySpan.className = "history-query";
-        querySpan.textContent = suggestion;
-        item.appendChild(icon);
-        item.appendChild(querySpan);
-        item.addEventListener("click", async () => {
-            const input = document.querySelector(".search-container input[name='q']");
-            if (input) {
-                input.value = suggestion;
-                await addToSearchHistory(suggestion);
-                input.form.submit();
-            }
-        });
-        container.appendChild(item);
-    });
-    container.style.display = "block";
-    document.querySelector(".search-container form").classList.add("history-style");
 }
 
 function renderCombinedDropdown(history, suggestions, container) {
@@ -304,8 +212,10 @@ function renderCombinedDropdown(history, suggestions, container) {
         });
     }
     if (suggestions && suggestions.length > 0) {
-        const remainingSlots = MAX_DISPLAYED_ITEMS - (history ? history.length : 0);
-        const displayedSuggestions = suggestions.slice(0, remainingSlots);
+        const remainingSlots = MAX_DISPLAYED_ITEMS - (history ? Math.min(history.length, MAX_DISPLAYED_ITEMS) : 0);
+        const displayedSuggestions = suggestions.slice(0, remainingSlots).filter((suggestion) => {
+            return !history.some((historyItem) => historyItem.query.toLowerCase() === suggestion.toLowerCase());
+        });
         displayedSuggestions.forEach((suggestion) => {
             const item = document.createElement("div");
             item.className = "history-item";

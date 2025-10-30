@@ -220,12 +220,18 @@ footer {
 }
 
 .shortcuts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    grid-auto-rows: minmax(120px, auto);
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--grid-gap);
     padding: var(--spacing-medium);
-    justify-items: center;
+    justify-content: center;
+    align-items: center;
+}
+
+.shortcuts-grid > * {
+    flex: 0 0 100px;
+    min-height: 120px;
+    max-width: 1fr;
 }
 
 .shortcut {
@@ -235,8 +241,6 @@ footer {
     justify-content: center;
     position: relative;
     cursor: pointer;
-    width: 100%;
-    height: 100%;
     border-radius: 12px;
     text-decoration: none;
     user-select: none;
@@ -578,7 +582,14 @@ footer {
     }
 
     .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--grid-gap);
+        justify-content: center;
+    }
+
+    .shortcuts-grid > * {
+        flex: 0 0 90px;
     }
 }
 
@@ -635,9 +646,15 @@ footer {
     }
 
     .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: var(--spacing-small);
         padding: var(--spacing-small);
+        justify-content: center;
+    }
+
+    .shortcuts-grid > * {
+        flex: 0 0 80px;
     }
 
     .shortcut-card,
@@ -716,7 +733,13 @@ footer {
     }
 
     .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .shortcuts-grid > * {
+        flex: 0 0 70px;
     }
 
     .shortcut-card,
@@ -760,7 +783,13 @@ footer {
 
 @media (max-width: 360px) {
     .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .shortcuts-grid > * {
+        flex: 0 0 60px;
     }
 
     .shortcut-card,
@@ -801,6 +830,12 @@ footer {
     }
 
     .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .shortcuts-grid > * {
+        flex: 0 0 110px;
     }
 }

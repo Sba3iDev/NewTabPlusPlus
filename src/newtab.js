@@ -32,6 +32,19 @@ const STORAGE_LIMITS = {
     QUOTA_BYTES_PER_ITEM: 8192,
     LOCAL_STORAGE_KEY: "newtab_data",
 };
+const DOMAINS = {
+    "mail.google.com/mail": "gmail",
+    "google.com/maps": "googlemaps",
+    "drive.google.com/drive": "googledrive",
+    "docs.google.com/document": "googledocs",
+    "docs.google.com/spreadsheets": "googlesheets",
+    "docs.google.com/presentation": "googleslides",
+    "calendar.google.com/calendar": "googlecalendar",
+    "meet.google.com/landing": "googlemeet",
+    "photos.google.com": "googlephotos",
+    "studio.youtube.com/channel": "youtubestudio",
+    "chat.openai.com": "openai",
+};
 
 function getStorageSize(data) {
     return new TextEncoder().encode(JSON.stringify(data)).length;
@@ -57,10 +70,20 @@ async function safeSyncStorage(key, value) {
     }
 }
 
+function getSimpleIcon(brandName) {
+    const slug = brandName.toLowerCase().replace(/\s+/g, "");
+    return `https://cdn.simpleicons.org/${slug}`;
+}
+
 function getFaviconUrl(url) {
     try {
-        const domain = new URL(url).hostname;
-        return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+        url = url.replace(/:\/\/(www\.|web\.)/, "://");
+        const domain = new URL(url);
+        const pathName = domain.pathname === "/" ? "" : domain.pathname.match(/^\/[^\/]+/)[0];
+        const brandName = DOMAINS[`${domain.hostname}${pathName}`] || domain.hostname.split(".")[0];
+        console.log(domain.hostname);
+        console.log(pathName);
+        return getSimpleIcon(brandName);
     } catch (e) {
         return null;
     }
@@ -77,10 +100,15 @@ function getInitialCharacter(text) {
     return text.trim()[0].toUpperCase();
 }
 
-function createFallbackIconSvg(char) {
-    return `data:image/svg+xml,${encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
-    )}`;
+function createFallbackIconSvg(url, char) {
+    try {
+        const domain = new URL(url).hostname;
+        return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+    } catch (e) {
+        return `data:image/svg+xml,${encodeURIComponent(
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
+        )}`;
+    }
 }
 
 function isValidUrl(url) {
@@ -468,7 +496,7 @@ function renderShortcuts(shortcuts) {
         img.src = getFaviconUrl(shortcut.url);
         img.addEventListener("error", () => {
             const initialChar = getInitialCharacter(shortcut.title);
-            img.src = createFallbackIconSvg(initialChar);
+            img.src = createFallbackIconSvg(shortcut.url, initialChar);
         });
         iconContainer.appendChild(img);
         card.appendChild(iconContainer);

@@ -44,6 +44,7 @@ const DOMAINS = {
     "photos.google.com": "googlephotos",
     "studio.youtube.com/channel": "youtubestudio",
 };
+const suggestionCache = new Map();
 
 function getStorageSize(data) {
     return new TextEncoder().encode(JSON.stringify(data)).length;
@@ -220,16 +221,17 @@ function renderCombinedDropdown(history, suggestions, container) {
                     input.form.submit();
                 }
             });
+            const historyDropdown = document.querySelector(".search-history-dropdown");
             const deleteHistoryItem = document.createElement("button");
             deleteHistoryItem.className = "delete-history-item";
             deleteHistoryItem.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>`;
             deleteHistoryItem.title = "Remove from history";
+            historyDropdown.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+            });
             deleteHistoryItem.addEventListener("click", async (e) => {
-                setTimeout(() => {
-                    document.querySelector(".search-container input[name='q']").focus();
-                }, 0);
                 e.stopPropagation();
                 const updatedHistory = history.filter((h) => h.query !== entry.query);
                 await saveSearchHistory(updatedHistory);
@@ -434,8 +436,10 @@ function renderShortcuts(shortcuts) {
             if (isMenuOpen) {
                 e.preventDefault();
                 e.stopPropagation();
-                dotsMenuOverlay.classList.remove("show");
-                dotsMenu.classList.remove("show");
+                if (dotsMenuOverlay && dotsMenu) {
+                    dotsMenuOverlay.classList.remove("show");
+                    dotsMenu.classList.remove("show");
+                }
             }
         });
         shortcutWrapper.addEventListener("auxclick", (e) => {
@@ -450,8 +454,10 @@ function renderShortcuts(shortcuts) {
             if (isMenuOpen) {
                 e.preventDefault();
                 e.stopPropagation();
-                dotsMenuOverlay.classList.remove("show");
-                dotsMenu.classList.remove("show");
+                if (dotsMenuOverlay && dotsMenu) {
+                    dotsMenuOverlay.classList.remove("show");
+                    dotsMenu.classList.remove("show");
+                }
             }
         });
         shortcutWrapper.addEventListener("dragstart", (e) => {
@@ -804,7 +810,17 @@ function showError(form, inputId, message) {
 }
 
 async function refreshShortcuts() {
-    const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+    let shortcuts = [];
+    try {
+        const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+        shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
+    } catch (error) {
+        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
+        if (localData) {
+            const parsed = JSON.parse(localData);
+            shortcuts = parsed[STORAGE_KEYS.SHORTCUTS] || [];
+        }
+    }
     renderShortcuts(shortcuts);
 }
 
@@ -855,7 +871,7 @@ async function initialize() {
             historyDropdown = document.createElement("div");
             historyDropdown.className = "search-history-dropdown";
             historyDropdown.setAttribute("role", "listbox");
-            historyDropdown.setAttribute("aria-label", "Search history");
+            historyDropdown.setAttribute("aria-label", "Search history and suggestions");
             searchContainer.appendChild(historyDropdown);
         }
         const searchInput = searchForm.querySelector("input[name='q']");
@@ -882,18 +898,25 @@ async function initialize() {
                 }
                 if (query) {
                     suggestionTimeoutId = setTimeout(async () => {
-                        const suggestions = await fetchSearchSuggestions(query);
+                        let suggestions = suggestionCache.get(query);
+                        if (!suggestions) {
+                            suggestions = await fetchSearchSuggestions(query);
+                            suggestionCache.set(query, suggestions);
+                        }
                         const freshHistory = await getSearchHistory();
                         const freshFilteredHistory = filterSearchHistory(freshHistory, e.target.value.trim());
                         renderCombinedDropdown(freshFilteredHistory, suggestions, historyDropdown);
-                    }, 100);
+                    }, 0);
                 }
+            });
+            historyDropdown.addEventListener("mousedown", (e) => {
+                e.preventDefault();
             });
             searchInput.addEventListener("blur", () => {
                 blurTimeoutId = setTimeout(() => {
                     hideSearchHistory(historyDropdown);
                     selectedHistoryIndex = -1;
-                }, 100);
+                }, 0);
             });
             searchInput.addEventListener("keydown", async (e) => {
                 const items = historyDropdown.querySelectorAll(".history-item");
@@ -949,7 +972,7 @@ async function initialize() {
     } catch (error) {
         console.error("Initialization failed:", error);
         document.getElementById("app").innerHTML = `
-            <div style="text-align: center; padding: 2rem;">
+            <div class="error-container">
                 <p>Failed to initialize NewTab++. Please try reloading.</p>
                 ${
                     error.message === "Not running in extension context"

@@ -9,14 +9,12 @@
     </head>
     <body>
         <noscript>
-            <div style="text-align: center; padding: 2rem">
-                JavaScript is required to use NewTab++. Please enable JavaScript to continue.
-            </div>
+            <div class="noscript-message">JavaScript is required to use NewTab++. Please enable JavaScript to continue.</div>
         </noscript>
         <header role="banner"></header>
         <main id="app" aria-live="polite">
             <div class="search-container">
-                <form action="https://www.google.com/search">
+                <form action="https://www.google.com/search" autocomplete="off">
                     <span class="search-icon">
                         <svg viewBox="0 0 24 24" width="20" height="20">
                             <path
@@ -24,7 +22,7 @@
                             />
                         </svg>
                     </span>
-                    <input type="text" name="q" placeholder="Search Google or type a URL" />
+                    <input type="text" name="q" placeholder="Search Google or type a URL" autocomplete="off" spellcheck="false" autocapitalize="off" />
                 </form>
                 <div class="search-history-dropdown" role="listbox" aria-label="Search history and suggestions"></div>
             </div>

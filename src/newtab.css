@@ -131,9 +131,10 @@ main {
 
 .search-history-dropdown {
     position: absolute;
-    left: 16px;
+    left: 0;
     right: 0;
-    width: 668px;
+    width: calc(100% - 32px);
+    margin: 0 auto;
     background-color: #ffffff;
     border: 1px solid #dfe1e5;
     border-top: none;
@@ -497,6 +498,11 @@ footer {
     box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
 }
 
+.form-input.error {
+    border-color: var(--color-error);
+    box-shadow: 0 0 0 3px rgba(176, 0, 32, 0.1);
+}
+
 .form-error {
     color: var(--color-error);
     font-size: 0.875rem;
@@ -562,6 +568,12 @@ footer {
     border: 0;
 }
 
+.noscript-message,
+.error-container {
+    text-align: center;
+    padding: 2rem;
+}
+
 @media (max-width: 1400px) {
     main {
         padding: var(--spacing-large) 80px;
@@ -608,8 +620,8 @@ footer {
     }
 
     .search-history-dropdown {
-        left: 8px;
-        right: 8px;
+        left: 0;
+        right: 0;
         width: calc(100% - 16px);
         padding: 4px 0;
     }
@@ -681,10 +693,6 @@ footer {
     .btn {
         padding: 10px 16px;
         font-size: 14px;
-    }
-
-    .search-history-dropdown::-webkit-scrollbar {
-        width: 6px;
     }
 
     .search-history-dropdown::-webkit-scrollbar-thumb {

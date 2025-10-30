@@ -43,7 +43,6 @@ const DOMAINS = {
     "meet.google.com/landing": "googlemeet",
     "photos.google.com": "googlephotos",
     "studio.youtube.com/channel": "youtubestudio",
-    "chat.openai.com": "openai",
 };
 
 function getStorageSize(data) {
@@ -81,7 +80,7 @@ function getSimpleIcon(brandName) {
 
 function getFaviconUrl(url) {
     try {
-        url = url.replace(/:\/\/(www\.|web\.)/, "://");
+        url = url.replace(/:\/\/(www\.|web\.|chat\.|m\.|mobile\.|app\.)/, "://");
         const domain = new URL(url);
         const pathMatch = domain.pathname === "/" ? null : domain.pathname.match(/^\/[^\/]+/);
         const pathName = pathMatch ? pathMatch[0] : "";
@@ -426,7 +425,7 @@ function renderShortcuts(shortcuts) {
         const shortcutWrapper = document.createElement("a");
         shortcutWrapper.className = "shortcut";
         shortcutWrapper.href = shortcut.url;
-        shortcutWrapper.target = "_blank";
+        shortcutWrapper.target = "_self";
         shortcutWrapper.rel = "noopener noreferrer";
         shortcutWrapper.draggable = true;
         shortcutWrapper.setAttribute("data-shortcut-id", shortcut.id);

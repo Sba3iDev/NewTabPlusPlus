@@ -71,7 +71,11 @@ async function safeSyncStorage(key, value) {
 }
 
 function getSimpleIcon(brandName) {
-    const slug = brandName.toLowerCase().replace(/\s+/g, "");
+    const slug = brandName
+        .toLowerCase()
+        .trim()
+        .replace(/&/g, "and")
+        .replace(/[^a-z0-9]/g, "");
     return `https://cdn.simpleicons.org/${slug}`;
 }
 
@@ -79,10 +83,9 @@ function getFaviconUrl(url) {
     try {
         url = url.replace(/:\/\/(www\.|web\.)/, "://");
         const domain = new URL(url);
-        const pathName = domain.pathname === "/" ? "" : domain.pathname.match(/^\/[^\/]+/)[0];
+        const pathMatch = domain.pathname === "/" ? null : domain.pathname.match(/^\/[^\/]+/);
+        const pathName = pathMatch ? pathMatch[0] : "";
         const brandName = DOMAINS[`${domain.hostname}${pathName}`] || domain.hostname.split(".")[0];
-        console.log(domain.hostname);
-        console.log(pathName);
         return getSimpleIcon(brandName);
     } catch (e) {
         return null;

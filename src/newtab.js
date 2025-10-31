@@ -70,6 +70,7 @@ const DOMAINS = {
     "google.com/fit": "googlefit",
 };
 const suggestionCache = new Map();
+let clockIntervalId = null;
 
 function getStorageSize(data) {
     return new TextEncoder().encode(JSON.stringify(data)).length;
@@ -309,6 +310,47 @@ function hideSearchHistory(container) {
     document.querySelector(".search-container form").classList.remove("history-style");
     const selectedItems = container.querySelectorAll(".history-item.selected");
     selectedItems.forEach((item) => item.classList.remove("selected"));
+}
+
+function updateClock() {
+    try {
+        const timeElement = document.getElementById("clock-time");
+        const dateElement = document.getElementById("clock-date");
+        if (!timeElement || !dateElement) {
+            stopClock();
+            return;
+        }
+        const now = new Date();
+        const timeOptions = {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+        };
+        timeElement.textContent = now.toLocaleTimeString(undefined, timeOptions);
+        const dateOptions = {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+        };
+        dateElement.textContent = now.toLocaleDateString(undefined, dateOptions);
+    } catch (error) {
+        console.error("Error updating clock:", error);
+        stopClock();
+    }
+}
+
+function startClock() {
+    stopClock();
+    updateClock();
+    clockIntervalId = setInterval(updateClock, 1000);
+}
+
+function stopClock() {
+    if (clockIntervalId) {
+        clearInterval(clockIntervalId);
+        clockIntervalId = null;
+    }
 }
 
 function createModal(title, content) {
@@ -860,22 +902,36 @@ function openSettingsModal() {
         showClockCheckbox.checked = settings.showClock;
         showSearchCheckbox.addEventListener("change", (e) => {
             const show = e.target.checked;
-            toggleSearchVisibility(".search-container", show);
+            toggleSearchVisibility(show);
             settings.showSearch = show;
             chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
         });
         showClockCheckbox.addEventListener("change", (e) => {
-            settings.showClock = e.target.checked;
+            const show = e.target.checked;
+            toggleClockVisibility(show);
+            settings.showClock = show;
             chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
         });
     });
     modal.querySelector("input, select").focus();
 }
 
-function toggleSearchVisibility(elementQuery, show) {
-    const searchContainer = document.querySelector(elementQuery);
+function toggleSearchVisibility(show) {
+    const searchContainer = document.querySelector(".search-container");
     if (searchContainer) {
         searchContainer.style.display = show ? "" : "none";
+    }
+}
+
+function toggleClockVisibility(show) {
+    const clockContainer = document.querySelector(".clock-container");
+    if (clockContainer) {
+        clockContainer.style.display = show ? "" : "none";
+        if (show) {
+            startClock();
+        } else {
+            stopClock();
+        }
     }
 }
 
@@ -902,6 +958,43 @@ async function refreshShortcuts() {
     renderShortcuts(shortcuts);
 }
 
+function renderSearch() {
+    const searchContainer = document.createElement("div");
+    searchContainer.className = "search-container";
+    const form = document.createElement("form");
+    form.action = "https://www.google.com/search";
+    form.autocomplete = "off";
+    const searchIcon = document.createElement("span");
+    searchIcon.className = "search-icon";
+    searchIcon.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20">
+            <path
+                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+            />
+        </svg>`;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.name = "q";
+    input.placeholder = "Search Google or type a URL";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.autocapitalize = "off";
+    form.appendChild(searchIcon);
+    form.appendChild(input);
+    const historyDropdown = document.createElement("div");
+    historyDropdown.className = "search-history-dropdown";
+    historyDropdown.setAttribute("role", "listbox");
+    historyDropdown.setAttribute("aria-label", "Search history and suggestions");
+    searchContainer.appendChild(form);
+    searchContainer.appendChild(historyDropdown);
+    const app = document.getElementById("app");
+    const clockContainer = app.querySelector(".clock-container");
+    if (clockContainer) {
+        clockContainer.insertAdjacentElement("afterend", searchContainer);
+    } else {
+        app.insertBefore(searchContainer, app.firstChild);
+    }
+}
+
 async function initialize() {
     try {
         let selectedHistoryIndex = -1;
@@ -913,8 +1006,10 @@ async function initialize() {
         await migrateStorage(CURRENT_VERSION);
         await initializeStorage();
         const data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
+        renderSearch();
         if (data[STORAGE_KEYS.SETTINGS]) {
-            toggleSearchVisibility(".search-container", data[STORAGE_KEYS.SETTINGS].showSearch);
+            toggleSearchVisibility(data[STORAGE_KEYS.SETTINGS].showSearch);
+            toggleClockVisibility(data[STORAGE_KEYS.SETTINGS].showClock);
         }
         const searchContainer = document.querySelector(".search-container");
         const searchForm = document.querySelector(".search-container form");

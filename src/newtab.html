@@ -13,18 +13,9 @@
         </noscript>
         <header role="banner"></header>
         <main id="app" aria-live="polite">
-            <div class="search-container">
-                <form action="https://www.google.com/search" autocomplete="off">
-                    <span class="search-icon">
-                        <svg viewBox="0 0 24 24" width="20" height="20">
-                            <path
-                                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
-                            />
-                        </svg>
-                    </span>
-                    <input type="text" name="q" placeholder="Search Google or type a URL" autocomplete="off" spellcheck="false" autocapitalize="off" />
-                </form>
-                <div class="search-history-dropdown" role="listbox" aria-label="Search history and suggestions"></div>
+            <div class="clock-container" role="timer" aria-live="off">
+                <div class="clock-time" id="clock-time"></div>
+                <div class="clock-date" id="clock-date"></div>
             </div>
         </main>
         <footer role="contentinfo"></footer>

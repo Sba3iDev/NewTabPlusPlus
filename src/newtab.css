@@ -75,6 +75,32 @@ main {
     padding: var(--spacing-large) 150px;
 }
 
+.clock-container {
+    text-align: center;
+    margin: 0 auto var(--spacing-large) auto;
+    padding: 0 var(--spacing-medium);
+    max-width: 700px;
+    user-select: none;
+}
+
+.clock-time {
+    font-size: 4rem;
+    font-weight: 300;
+    color: var(--color-text);
+    line-height: 1.2;
+    margin-bottom: var(--spacing-small);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.clock-date {
+    font-size: 1.125rem;
+    font-weight: 400;
+    color: var(--color-secondary);
+    line-height: 1.4;
+    text-transform: capitalize;
+}
+
 .search-container {
     max-width: 700px;
     margin: 100px auto var(--spacing-large) auto;
@@ -691,6 +717,14 @@ footer {
     .shortcuts-grid {
         grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     }
+
+    .clock-time {
+        font-size: 3.5rem;
+    }
+
+    .clock-date {
+        font-size: 1rem;
+    }
 }
 
 @media (max-width: 768px) {
@@ -794,6 +828,19 @@ footer {
         font-size: 14px;
     }
 
+    .clock-time {
+        font-size: 3rem;
+    }
+
+    .clock-date {
+        font-size: 0.9rem;
+    }
+
+    .clock-container {
+        padding: 0 var(--spacing-small);
+        margin-bottom: var(--spacing-medium);
+    }
+
     .search-history-dropdown::-webkit-scrollbar-thumb {
         background: #dadce0;
         border-radius: 3px;
@@ -863,6 +910,14 @@ footer {
         padding: 10px;
         font-size: 14px;
     }
+
+    .clock-time {
+        font-size: 2.5rem;
+    }
+
+    .clock-date {
+        font-size: 0.85rem;
+    }
 }
 
 @media (max-width: 360px) {
@@ -884,6 +939,14 @@ footer {
     .shortcut-title {
         font-size: 0.6rem;
         max-width: 60px;
+    }
+
+    .clock-time {
+        font-size: 2rem;
+    }
+
+    .clock-date {
+        font-size: 0.8rem;
     }
 }
 
@@ -909,5 +972,13 @@ footer {
 
     .shortcuts-grid {
         grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+
+    .clock-time {
+        font-size: 4.5rem;
+    }
+
+    .clock-date {
+        font-size: 1.25rem;
     }
 }

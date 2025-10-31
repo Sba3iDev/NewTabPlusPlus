@@ -837,21 +837,6 @@ function openSettingsModal() {
     const modalContent = `
         <form class="settings-form">
             <div class="setting-group">
-                <label for="theme-select" class="setting-label">Theme</label>
-                <select id="theme-select" name="theme" class="form-input">
-                    <option value="system">System</option>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                </select>
-            </div>
-            <div class="setting-group">
-                <label for="columns-range" class="setting-label">Grid Columns</label>
-                <div class="range-container">
-                    <input type="range" id="columns-range" name="columns" min="3" max="8" step="1" class="setting-input">
-                    <span class="range-value-display"></span>
-                </div>
-            </div>
-            <div class="setting-group">
                 <div class="setting-row">
                     <input type="checkbox" id="show-search-checkbox" name="showSearch" class="setting-input">
                     <label for="show-search-checkbox" class="setting-label">Show Search Bar</label>
@@ -869,35 +854,13 @@ function openSettingsModal() {
     const form = modal.querySelector(".settings-form");
     chrome.storage.sync.get(STORAGE_KEYS.SETTINGS, ({ settings }) => {
         if (!settings) return;
-        const themeSelect = form.querySelector('[name="theme"]');
-        const columnsRange = form.querySelector('[name="columns"]');
-        const rangeValueDisplay = form.querySelector(".range-value-display");
         const showSearchCheckbox = form.querySelector('[name="showSearch"]');
         const showClockCheckbox = form.querySelector('[name="showClock"]');
-        themeSelect.value = settings.theme;
-        columnsRange.value = settings.columns;
-        rangeValueDisplay.textContent = settings.columns;
         showSearchCheckbox.checked = settings.showSearch;
         showClockCheckbox.checked = settings.showClock;
-        themeSelect.addEventListener("change", (e) => {
-            const newTheme = e.target.value;
-            applyTheme(newTheme);
-            settings.theme = newTheme;
-            chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
-        });
-        columnsRange.addEventListener("input", (e) => {
-            const newColumns = e.target.value;
-            rangeValueDisplay.textContent = newColumns;
-            updateGridColumns(newColumns);
-        });
-        columnsRange.addEventListener("change", (e) => {
-            const newColumns = e.target.value;
-            settings.columns = parseInt(newColumns, 10);
-            chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
-        });
         showSearchCheckbox.addEventListener("change", (e) => {
             const show = e.target.checked;
-            toggleSearchVisibility(show);
+            toggleSearchVisibility(".search-container", show);
             settings.showSearch = show;
             chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
         });
@@ -909,25 +872,11 @@ function openSettingsModal() {
     modal.querySelector("input, select").focus();
 }
 
-function applyTheme(theme) {
-    const html = document.documentElement;
-    html.classList.remove("theme-light", "theme-dark");
-    if (theme === "light") {
-        html.classList.add("theme-light");
-    } else if (theme === "dark") {
-        html.classList.add("theme-dark");
-    }
-}
-
-function toggleSearchVisibility(show) {
-    const searchContainer = document.querySelector(".search-container");
+function toggleSearchVisibility(elementQuery, show) {
+    const searchContainer = document.querySelector(elementQuery);
     if (searchContainer) {
         searchContainer.style.display = show ? "" : "none";
     }
-}
-
-function updateGridColumns(columns) {
-    document.documentElement.style.setProperty("--grid-columns", columns);
 }
 
 function showError(form, inputId, message) {
@@ -965,9 +914,7 @@ async function initialize() {
         await initializeStorage();
         const data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
         if (data[STORAGE_KEYS.SETTINGS]) {
-            applyTheme(data[STORAGE_KEYS.SETTINGS].theme);
-            toggleSearchVisibility(data[STORAGE_KEYS.SETTINGS].showSearch);
-            updateGridColumns(data[STORAGE_KEYS.SETTINGS].columns);
+            toggleSearchVisibility(".search-container", data[STORAGE_KEYS.SETTINGS].showSearch);
         }
         const searchContainer = document.querySelector(".search-container");
         const searchForm = document.querySelector(".search-container form");

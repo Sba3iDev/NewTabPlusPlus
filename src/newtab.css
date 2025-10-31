@@ -50,34 +50,6 @@
     }
 }
 
-html.theme-light {
-    --color-background: #ffffff;
-    --color-text: #333333;
-    --color-primary: #2196f3;
-    --color-secondary: #757575;
-    --color-accent: #ff4081;
-    --color-surface: #e8e8e9;
-    --card-color: #f1f1f1;
-    --modal-color: #ffffff;
-    --color-error: #b00020;
-    --hover-color: #ededed;
-    --bg-color-dots: #d8d8d9;
-    --fill-color-dots: #80868b;
-}
-
-html.theme-dark {
-    --color-background: #3c3c3c;
-    --color-text: #e8eaed;
-    --color-primary: #2196f3;
-    --color-secondary: #b0bec5;
-    --color-surface: #505050;
-    --card-color: #444746;
-    --modal-color: #292a2d;
-    --hover-color: #38393b;
-    --bg-color-dots: #5c5c5c;
-    --fill-color-dots: #ffffff;
-}
-
 html {
     font-size: var(--font-size-base);
     font-family: var(--font-primary);

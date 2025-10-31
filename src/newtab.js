@@ -333,7 +333,7 @@ function updateClock() {
             day: "numeric",
             year: "numeric",
         };
-        dateElement.textContent = now.toLocaleDateString(undefined, dateOptions);
+        dateElement.textContent = now.toLocaleDateString(undefined, dateOptions).replace(/((?:[^,]*,){1}[^,]*),/, "$1");
     } catch (error) {
         console.error("Error updating clock:", error);
         stopClock();
@@ -588,8 +588,6 @@ function renderShortcuts(shortcuts) {
         const SVG_NS = "http://www.w3.org/2000/svg";
         const dotsMenuIcon = document.createElementNS(SVG_NS, "svg");
         dotsMenuIcon.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-        dotsMenuIcon.setAttribute("width", "24");
-        dotsMenuIcon.setAttribute("height", "24");
         dotsMenuIcon.classList.add("shortcut-dots-menu-icon");
         const path = document.createElementNS(SVG_NS, "path");
         path.setAttribute(

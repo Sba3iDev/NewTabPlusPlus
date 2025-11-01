@@ -355,9 +355,10 @@ function stopClock() {
     }
 }
 
-function createModal(title, content) {
+function createModal(title, content, options = {}) {
     const modalRoot = document.getElementById("modal-root");
     modalRoot.innerHTML = "";
+    modalRoot.hasErrors = false;
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     const container = document.createElement("div");
@@ -374,29 +375,62 @@ function createModal(title, content) {
     closeBtn.className = "modal-close";
     closeBtn.setAttribute("aria-label", "Close");
     closeBtn.textContent = "×";
-    closeBtn.addEventListener("click", closeModal);
-    header.appendChild(titleEl);
-    header.appendChild(closeBtn);
     const body = document.createElement("div");
     body.className = "modal-body";
     body.innerHTML = content;
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
     container.appendChild(header);
     container.appendChild(body);
+    if (options.showFooter) {
+        const footer = document.createElement("div");
+        footer.className = "modal-footer";
+        const cancelBtn = document.createElement("button");
+        cancelBtn.className = "btn btn-secondary modal-cancel";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.addEventListener("click", () => {
+            if (options.onCancel) {
+                options.onCancel();
+            } else {
+                closeModal();
+            }
+        });
+        const saveBtn = document.createElement("button");
+        saveBtn.className = "btn btn-primary modal-save";
+        saveBtn.textContent = "Save";
+        if (options.onSave) {
+            saveBtn.addEventListener("click", options.onSave);
+        }
+        footer.appendChild(cancelBtn);
+        footer.appendChild(saveBtn);
+        container.appendChild(footer);
+    }
     overlay.appendChild(container);
     modalRoot.appendChild(overlay);
+    const attemptClose = () => {
+        if (options.preventCloseOnError && modalRoot.hasErrors) {
+            return;
+        }
+        if (options.onCancel) {
+            options.onCancel();
+        } else {
+            closeModal();
+        }
+    };
+    closeBtn.addEventListener("click", attemptClose);
     const handleEscape = (e) => {
         if (e.key === "Escape") {
-            closeModal();
+            attemptClose();
         }
     };
     const handleOverlayClick = (e) => {
         if (e.target === overlay) {
-            closeModal();
+            attemptClose();
         }
     };
     overlay.addEventListener("click", handleOverlayClick);
     document.addEventListener("keydown", handleEscape);
-    const firstInput = container.querySelector("input, button:not(.modal-close)");
+    const firstInput = container.querySelector("input, select, button:not(.modal-close)");
     if (firstInput) {
         firstInput.focus();
     }
@@ -875,7 +909,7 @@ function clearFormErrors(form) {
     });
 }
 
-function openSettingsModal() {
+async function openSettingsModal() {
     const modalContent = `
         <form class="settings-form">
             <div class="setting-group">
@@ -909,79 +943,110 @@ function openSettingsModal() {
             </div>
         </form>
     `;
-    const modal = createModal("Settings", modalContent);
-    const form = modal.querySelector(".settings-form");
-    chrome.storage.sync.get(STORAGE_KEYS.SETTINGS, ({ settings }) => {
-        if (!settings) return;
-        const showSearchCheckbox = form.querySelector('[name="showSearch"]');
-        const showClockCheckbox = form.querySelector('[name="showClock"]');
-        showSearchCheckbox.checked = settings.showSearch;
-        showClockCheckbox.checked = settings.showClock;
-        showSearchCheckbox.addEventListener("change", (e) => {
-            const show = e.target.checked;
-            toggleSearchVisibility(show);
-            settings.showSearch = show;
-            chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
-        });
-        showClockCheckbox.addEventListener("change", (e) => {
-            const show = e.target.checked;
-            toggleClockVisibility(show);
-            settings.showClock = show;
-            chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
-        });
-        const backgroundTypeSelect = form.querySelector("#background-type-select");
-        const backgroundColorContainer = form.querySelector(".background-color-container");
-        const backgroundImageContainer = form.querySelector(".background-image-container");
-        const backgroundColorInput = form.querySelector("#background-color-input");
-        const backgroundImageInput = form.querySelector("#background-image-input");
-        backgroundTypeSelect.value = settings.backgroundType || "default";
-        if (settings.backgroundType === "color") {
-            backgroundColorContainer.classList.add("show");
-            backgroundColorInput.value = settings.backgroundValue;
-        } else if (settings.backgroundType === "image") {
-            backgroundImageContainer.classList.add("show");
-            backgroundImageInput.value = settings.backgroundValue;
+    let originalSettings;
+    let tempSettings;
+    let hasValidationErrors = false;
+    const { settings } = await chrome.storage.sync.get(STORAGE_KEYS.SETTINGS);
+    if (!settings) return;
+    originalSettings = JSON.parse(JSON.stringify(settings));
+    tempSettings = { ...settings };
+    const handleSave = async () => {
+        const modalRoot = document.getElementById("modal-root");
+        hasValidationErrors = false;
+        modalRoot.hasErrors = false;
+        const backgroundImageInput = modal.querySelector("#background-image-input");
+        const errorElement = backgroundImageInput.nextElementSibling;
+        errorElement.textContent = "";
+        backgroundImageInput.classList.remove("error");
+        if (tempSettings.backgroundType === "image") {
+            const url = tempSettings.backgroundValue.trim();
+            if (!url || !isValidUrl(url)) {
+                errorElement.textContent = "Please enter a valid URL.";
+                backgroundImageInput.classList.add("error");
+                hasValidationErrors = true;
+            } else {
+                try {
+                    await validateBackgroundImage(url);
+                } catch (error) {
+                    errorElement.textContent = "Failed to load image.";
+                    backgroundImageInput.classList.add("error");
+                    hasValidationErrors = true;
+                }
+            }
         }
-        backgroundTypeSelect.addEventListener("change", (e) => {
-            const type = e.target.value;
-            backgroundColorContainer.classList.toggle("show", type === "color");
-            backgroundImageContainer.classList.toggle("show", type === "image");
-            if (type === "default") {
-                applyBackground("default", "");
-                settings.backgroundType = "default";
-                settings.backgroundValue = "";
-                chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
-            }
-        });
-        backgroundColorInput.addEventListener("change", (e) => {
-            const color = e.target.value;
-            applyBackground("color", color);
-            settings.backgroundType = "color";
-            settings.backgroundValue = color;
-            chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
-        });
-        backgroundImageInput.addEventListener("blur", async (e) => {
-            const url = e.target.value.trim();
-            const errorElement = backgroundImageInput.nextElementSibling;
-            if (!url) {
-                errorElement.textContent = "";
-                return;
-            }
-            if (!isValidUrl(url)) {
-                errorElement.textContent = "Invalid URL";
-                return;
-            }
-            try {
-                await validateBackgroundImage(url);
-                errorElement.textContent = "";
-                applyBackground("image", url);
-                settings.backgroundType = "image";
-                settings.backgroundValue = url;
-                chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
-            } catch (error) {
-                errorElement.textContent = "Failed to load image.";
-            }
-        });
+        if (tempSettings.backgroundType === "color") {
+            tempSettings.backgroundValue === "" ? (tempSettings.backgroundValue = "#000000") : null;
+        }
+        if (hasValidationErrors) {
+            modalRoot.hasErrors = true;
+            modal.querySelector(".error").focus();
+            return;
+        }
+        toggleSearchVisibility(tempSettings.showSearch);
+        toggleClockVisibility(tempSettings.showClock);
+        applyBackground(tempSettings.backgroundType, tempSettings.backgroundValue);
+        await safeSyncStorage(STORAGE_KEYS.SETTINGS, tempSettings);
+        closeModal();
+    };
+    const handleCancel = () => {
+        toggleSearchVisibility(originalSettings.showSearch);
+        toggleClockVisibility(originalSettings.showClock);
+        applyBackground(originalSettings.backgroundType, originalSettings.backgroundValue);
+        closeModal();
+    };
+    const modal = createModal("Settings", modalContent, {
+        showFooter: true,
+        onSave: handleSave,
+        onCancel: handleCancel,
+        preventCloseOnError: true,
+    });
+    const form = modal.querySelector(".settings-form");
+    const showSearchCheckbox = form.querySelector('[name="showSearch"]');
+    const showClockCheckbox = form.querySelector('[name="showClock"]');
+    showSearchCheckbox.checked = tempSettings.showSearch;
+    showClockCheckbox.checked = tempSettings.showClock;
+    showSearchCheckbox.addEventListener("change", (e) => {
+        tempSettings.showSearch = e.target.checked;
+    });
+    showClockCheckbox.addEventListener("change", (e) => {
+        tempSettings.showClock = e.target.checked;
+    });
+    const backgroundTypeSelect = form.querySelector("#background-type-select");
+    const backgroundColorContainer = form.querySelector(".background-color-container");
+    const backgroundImageContainer = form.querySelector(".background-image-container");
+    const backgroundColorInput = form.querySelector("#background-color-input");
+    const backgroundImageInput = form.querySelector("#background-image-input");
+    backgroundTypeSelect.value = tempSettings.backgroundType || "default";
+    const updateBackgroundVisibility = () => {
+        backgroundColorContainer.classList.toggle("show", tempSettings.backgroundType === "color");
+        backgroundImageContainer.classList.toggle("show", tempSettings.backgroundType === "image");
+    };
+    updateBackgroundVisibility();
+    if (tempSettings.backgroundType === "color") {
+        backgroundColorInput.value = tempSettings.backgroundValue;
+    } else if (tempSettings.backgroundType === "image") {
+        backgroundImageInput.value = tempSettings.backgroundValue;
+    }
+    backgroundTypeSelect.addEventListener("change", (e) => {
+        tempSettings.backgroundType = e.target.value;
+        if (tempSettings.backgroundType === "default") {
+            tempSettings.backgroundValue = "";
+        }
+        updateBackgroundVisibility();
+    });
+    backgroundColorInput.addEventListener("input", (e) => {
+        tempSettings.backgroundType = "color";
+        tempSettings.backgroundValue = e.target.value;
+    });
+    backgroundImageInput.addEventListener("input", (e) => {
+        tempSettings.backgroundValue = e.target.value.trim();
+        const errorElement = backgroundImageInput.nextElementSibling;
+        if (errorElement.textContent) {
+            errorElement.textContent = "";
+            backgroundImageInput.classList.remove("error");
+            hasValidationErrors = false;
+            document.getElementById("modal-root").hasErrors = false;
+        }
     });
     modal.querySelector("input, select").focus();
 }

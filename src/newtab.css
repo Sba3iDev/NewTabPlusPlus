@@ -490,8 +490,10 @@ footer {
 .modal-footer {
     display: flex;
     justify-content: flex-end;
-    gap: var(--spacing-medium);
-    flex-wrap: wrap;
+    gap: var(--spacing-small);
+    padding-top: var(--spacing-medium);
+    margin-top: var(--spacing-large);
+    border-top: 1px solid var(--color-surface);
 }
 
 .confirm-message {
@@ -835,6 +837,11 @@ body.custom-background::before {
 
     .modal-footer {
         gap: var(--spacing-small);
+        flex-direction: column;
+    }
+
+    .modal-footer .btn {
+        width: 100%;
     }
 
     .btn {

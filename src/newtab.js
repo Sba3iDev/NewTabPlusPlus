@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS = {
     showClock: true,
     showSearch: true,
     showWeather: false,
+    backgroundType: "default",
+    backgroundValue: "",
 };
 const DEFAULT_SHORTCUTS = [
     {
@@ -888,6 +890,23 @@ function openSettingsModal() {
                     <label for="show-clock-checkbox" class="setting-label">Show Clock</label>
                 </div>
             </div>
+            <div class="setting-group">
+                <label for="background-type-select" class="setting-label">Background Type</label>
+                <select id="background-type-select" class="setting-input">
+                    <option value="default">Default</option>
+                    <option value="color">Custom Color</option>
+                    <option value="image">Image URL</option>
+                </select>
+            </div>
+            <div class="background-color-container setting-group">
+                <label for="background-color-input" class="setting-label">Choose Background Color</label>
+                <input type="color" id="background-color-input" name="backgroundColor" class="setting-input">
+            </div>
+            <div class="background-image-container setting-group">
+                <label for="background-image-input" class="setting-label">Enter Image URL</label>
+                <input type="text" id="background-image-input" name="backgroundImage" class="form-input" placeholder="https://example.com/image.jpg">
+                <div class="form-error"></div>
+            </div>
         </form>
     `;
     const modal = createModal("Settings", modalContent);
@@ -910,6 +929,59 @@ function openSettingsModal() {
             settings.showClock = show;
             chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
         });
+        const backgroundTypeSelect = form.querySelector("#background-type-select");
+        const backgroundColorContainer = form.querySelector(".background-color-container");
+        const backgroundImageContainer = form.querySelector(".background-image-container");
+        const backgroundColorInput = form.querySelector("#background-color-input");
+        const backgroundImageInput = form.querySelector("#background-image-input");
+        backgroundTypeSelect.value = settings.backgroundType || "default";
+        if (settings.backgroundType === "color") {
+            backgroundColorContainer.classList.add("show");
+            backgroundColorInput.value = settings.backgroundValue;
+        } else if (settings.backgroundType === "image") {
+            backgroundImageContainer.classList.add("show");
+            backgroundImageInput.value = settings.backgroundValue;
+        }
+        backgroundTypeSelect.addEventListener("change", (e) => {
+            const type = e.target.value;
+            backgroundColorContainer.classList.toggle("show", type === "color");
+            backgroundImageContainer.classList.toggle("show", type === "image");
+            if (type === "default") {
+                applyBackground("default", "");
+                settings.backgroundType = "default";
+                settings.backgroundValue = "";
+                chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
+            }
+        });
+        backgroundColorInput.addEventListener("change", (e) => {
+            const color = e.target.value;
+            applyBackground("color", color);
+            settings.backgroundType = "color";
+            settings.backgroundValue = color;
+            chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
+        });
+        backgroundImageInput.addEventListener("blur", async (e) => {
+            const url = e.target.value.trim();
+            const errorElement = backgroundImageInput.nextElementSibling;
+            if (!url) {
+                errorElement.textContent = "";
+                return;
+            }
+            if (!isValidUrl(url)) {
+                errorElement.textContent = "Invalid URL";
+                return;
+            }
+            try {
+                await validateBackgroundImage(url);
+                errorElement.textContent = "";
+                applyBackground("image", url);
+                settings.backgroundType = "image";
+                settings.backgroundValue = url;
+                chrome.storage.sync.set({ [STORAGE_KEYS.SETTINGS]: settings });
+            } catch (error) {
+                errorElement.textContent = "Failed to load image.";
+            }
+        });
     });
     modal.querySelector("input, select").focus();
 }
@@ -931,6 +1003,45 @@ function toggleClockVisibility(show) {
             stopClock();
         }
     }
+}
+
+function applyBackground(type, value) {
+    const body = document.body;
+    try {
+        if (type === "default") {
+            body.style.background = "";
+            body.style.backgroundImage = "";
+            body.style.backgroundColor = "";
+            body.style.backgroundSize = "";
+            body.style.backgroundPosition = "";
+            body.style.backgroundRepeat = "";
+            body.style.backgroundAttachment = "";
+        } else if (type === "color") {
+            if (/^#[0-9A-F]{6}$/i.test(value)) {
+                body.style.backgroundColor = value;
+                body.style.backgroundImage = "";
+            }
+        } else if (type === "image") {
+            if (isValidUrl(value)) {
+                body.style.backgroundImage = `url('${value}')`;
+                body.style.backgroundSize = "cover";
+                body.style.backgroundPosition = "center";
+                body.style.backgroundRepeat = "no-repeat";
+                body.style.backgroundAttachment = "fixed";
+            }
+        }
+    } catch (error) {
+        console.error("Error applying background:", error);
+    }
+}
+
+async function validateBackgroundImage(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => reject();
+        img.src = url;
+    });
 }
 
 function showError(form, inputId, message) {
@@ -1008,6 +1119,10 @@ async function initialize() {
         if (data[STORAGE_KEYS.SETTINGS]) {
             toggleSearchVisibility(data[STORAGE_KEYS.SETTINGS].showSearch);
             toggleClockVisibility(data[STORAGE_KEYS.SETTINGS].showClock);
+            applyBackground(
+                data[STORAGE_KEYS.SETTINGS].backgroundType || "default",
+                data[STORAGE_KEYS.SETTINGS].backgroundValue || ""
+            );
         }
         const searchContainer = document.querySelector(".search-container");
         const searchForm = document.querySelector(".search-container form");

@@ -3,6 +3,7 @@ const STORAGE_KEYS = {
     SHORTCUTS: "shortcuts",
     VERSION: "version",
     SEARCH_HISTORY: "searchHistory",
+    UPLOADED_BACKGROUND: "uploadedBackground",
 };
 const CURRENT_VERSION = "1.0.0";
 const MAX_SHORTCUTS = 20;
@@ -930,6 +931,7 @@ async function openSettingsModal() {
                     <option value="default">Default</option>
                     <option value="color">Custom Color</option>
                     <option value="image">Image URL</option>
+                    <option value="upload">Upload Image</option>
                 </select>
             </div>
             <div class="background-color-container setting-group">
@@ -941,10 +943,16 @@ async function openSettingsModal() {
                 <input type="text" id="background-image-input" name="backgroundImage" class="form-input" placeholder="https://example.com/image.jpg">
                 <div class="form-error"></div>
             </div>
+            <div class="background-upload-container setting-group">
+                <label for="background-file-input" class="setting-label">Upload Background Image</label>
+                <input type="file" id="background-file-input" accept="image/*" class="setting-input">
+                <div class="form-error"></div>
+            </div>
         </form>
     `;
     let originalSettings;
     let tempSettings;
+    let uploadedDataUrl = null;
     let hasValidationErrors = false;
     const { settings } = await chrome.storage.sync.get(STORAGE_KEYS.SETTINGS);
     if (!settings) return;
@@ -974,24 +982,46 @@ async function openSettingsModal() {
                 }
             }
         }
-        if (tempSettings.backgroundType === "color") {
-            tempSettings.backgroundValue === "" ? (tempSettings.backgroundValue = "#000000") : null;
+        if (tempSettings.backgroundType === "upload" && !uploadedDataUrl && originalSettings.backgroundType !== "upload") {
+            const uploadErrorEl = modal.querySelector(".background-upload-container .form-error");
+            uploadErrorEl.textContent = "Please select an image file.";
+            modal.querySelector("#background-file-input").classList.add("error");
+            hasValidationErrors = true;
+        }
+        if (tempSettings.backgroundType === "color" && tempSettings.backgroundValue === "") {
+            tempSettings.backgroundValue = "#000000";
         }
         if (hasValidationErrors) {
             modalRoot.hasErrors = true;
-            modal.querySelector(".error").focus();
+            const imageInput = modal.querySelector("#background-image-input");
+            if (imageInput && imageInput.classList.contains("error")) {
+                imageInput.focus();
+            } else {
+                const fileInput = modal.querySelector("#background-file-input");
+                if (fileInput && fileInput.classList.contains("error")) {
+                    fileInput.focus();
+                }
+            }
             return;
+        }
+        if (tempSettings.backgroundType === "upload") {
+            if (uploadedDataUrl) {
+                await chrome.storage.local.set({ [STORAGE_KEYS.UPLOADED_BACKGROUND]: uploadedDataUrl });
+            }
+            tempSettings.backgroundValue = "";
+        } else {
+            await chrome.storage.local.remove(STORAGE_KEYS.UPLOADED_BACKGROUND);
         }
         toggleSearchVisibility(tempSettings.showSearch);
         toggleClockVisibility(tempSettings.showClock);
-        applyBackground(tempSettings.backgroundType, tempSettings.backgroundValue);
+        await applyBackground(tempSettings.backgroundType, tempSettings.backgroundValue);
         await safeSyncStorage(STORAGE_KEYS.SETTINGS, tempSettings);
         closeModal();
     };
-    const handleCancel = () => {
+    const handleCancel = async () => {
         toggleSearchVisibility(originalSettings.showSearch);
         toggleClockVisibility(originalSettings.showClock);
-        applyBackground(originalSettings.backgroundType, originalSettings.backgroundValue);
+        await applyBackground(originalSettings.backgroundType, originalSettings.backgroundValue);
         closeModal();
     };
     const modal = createModal("Settings", modalContent, {
@@ -1014,12 +1044,15 @@ async function openSettingsModal() {
     const backgroundTypeSelect = form.querySelector("#background-type-select");
     const backgroundColorContainer = form.querySelector(".background-color-container");
     const backgroundImageContainer = form.querySelector(".background-image-container");
+    const backgroundUploadContainer = form.querySelector(".background-upload-container");
     const backgroundColorInput = form.querySelector("#background-color-input");
     const backgroundImageInput = form.querySelector("#background-image-input");
+    const backgroundFileInput = form.querySelector("#background-file-input");
     backgroundTypeSelect.value = tempSettings.backgroundType || "default";
     const updateBackgroundVisibility = () => {
         backgroundColorContainer.classList.toggle("show", tempSettings.backgroundType === "color");
         backgroundImageContainer.classList.toggle("show", tempSettings.backgroundType === "image");
+        backgroundUploadContainer.classList.toggle("show", tempSettings.backgroundType === "upload");
     };
     updateBackgroundVisibility();
     if (tempSettings.backgroundType === "color") {
@@ -1048,6 +1081,27 @@ async function openSettingsModal() {
             document.getElementById("modal-root").hasErrors = false;
         }
     });
+    backgroundFileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        const errorElement = backgroundFileInput.nextElementSibling;
+        errorElement.textContent = "";
+        if (!file) return;
+        const validation = validateUploadedFile(file);
+        if (!validation.valid) {
+            errorElement.textContent = validation.error;
+            backgroundFileInput.value = "";
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            uploadedDataUrl = event.target.result;
+            tempSettings.backgroundType = "upload";
+        };
+        reader.onerror = () => {
+            errorElement.textContent = "Failed to read image file.";
+        };
+        reader.readAsDataURL(file);
+    });
     modal.querySelector("input, select").focus();
 }
 
@@ -1070,7 +1124,7 @@ function toggleClockVisibility(show) {
     }
 }
 
-function applyBackground(type, value) {
+async function applyBackground(type, value) {
     const body = document.body;
     try {
         if (type === "default") {
@@ -1094,6 +1148,19 @@ function applyBackground(type, value) {
                 body.style.backgroundRepeat = "no-repeat";
                 body.style.backgroundAttachment = "fixed";
             }
+        } else if (type === "upload") {
+            const { [STORAGE_KEYS.UPLOADED_BACKGROUND]: dataUrl } = await chrome.storage.local.get(
+                STORAGE_KEYS.UPLOADED_BACKGROUND
+            );
+            if (dataUrl) {
+                body.style.backgroundImage = `url('${dataUrl}')`;
+                body.style.backgroundSize = "cover";
+                body.style.backgroundPosition = "center";
+                body.style.backgroundRepeat = "no-repeat";
+                body.style.backgroundAttachment = "fixed";
+            } else {
+                await applyBackground("default", "");
+            }
         }
     } catch (error) {
         console.error("Error applying background:", error);
@@ -1107,6 +1174,16 @@ async function validateBackgroundImage(url) {
         img.onerror = () => reject();
         img.src = url;
     });
+}
+
+function validateUploadedFile(file) {
+    if (!file.type.startsWith("image/")) {
+        return { valid: false, error: "File must be an image." };
+    }
+    if (file.size > 2 * 1024 * 1024) {
+        return { valid: false, error: "File size must be under 2MB." };
+    }
+    return { valid: true, error: null };
 }
 
 function showError(form, inputId, message) {
@@ -1184,7 +1261,7 @@ async function initialize() {
         if (data[STORAGE_KEYS.SETTINGS]) {
             toggleSearchVisibility(data[STORAGE_KEYS.SETTINGS].showSearch);
             toggleClockVisibility(data[STORAGE_KEYS.SETTINGS].showClock);
-            applyBackground(
+            await applyBackground(
                 data[STORAGE_KEYS.SETTINGS].backgroundType || "default",
                 data[STORAGE_KEYS.SETTINGS].backgroundValue || ""
             );

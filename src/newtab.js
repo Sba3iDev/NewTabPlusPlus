@@ -1006,11 +1006,26 @@ async function openSettingsModal() {
         }
         if (tempSettings.backgroundType === "upload") {
             if (uploadedDataUrl) {
-                await chrome.storage.local.set({ [STORAGE_KEYS.UPLOADED_BACKGROUND]: uploadedDataUrl });
+                try {
+                    await chrome.storage.local.set({ [STORAGE_KEYS.UPLOADED_BACKGROUND]: uploadedDataUrl });
+                } catch (error) {
+                    console.error("Failed to save uploaded background:", error);
+                    const uploadErrorEl = modal.querySelector(".background-upload-container .form-error");
+                    uploadErrorEl.textContent = error.message?.includes("QUOTA")
+                        ? "Storage quota exceeded. Please use a smaller image."
+                        : "Failed to save image. Please try again.";
+                    hasValidationErrors = true;
+                    modalRoot.hasErrors = true;
+                    return;
+                }
             }
             tempSettings.backgroundValue = "";
         } else {
-            await chrome.storage.local.remove(STORAGE_KEYS.UPLOADED_BACKGROUND);
+            try {
+                await chrome.storage.local.remove(STORAGE_KEYS.UPLOADED_BACKGROUND);
+            } catch (error) {
+                console.error("Failed to remove uploaded background:", error);
+            }
         }
         toggleSearchVisibility(tempSettings.showSearch);
         toggleClockVisibility(tempSettings.showClock);
@@ -1180,8 +1195,8 @@ function validateUploadedFile(file) {
     if (!file.type.startsWith("image/")) {
         return { valid: false, error: "File must be an image." };
     }
-    if (file.size > 2 * 1024 * 1024) {
-        return { valid: false, error: "File size must be under 2MB." };
+    if (file.size > 1.5 * 1024 * 1024) {
+        return { valid: false, error: "File size must be under 1.5MB." };
     }
     return { valid: true, error: null };
 }

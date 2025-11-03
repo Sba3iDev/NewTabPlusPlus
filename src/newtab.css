@@ -67,7 +67,6 @@ body {
 header {
     position: relative;
     padding: var(--spacing-medium);
-    border-bottom: 1px solid rgba(125, 125, 125, 0.2);
 }
 
 main {
@@ -166,7 +165,7 @@ main {
     border: 1px solid #dfe1e5;
     border-top: none;
     border-radius: 0 0 25px 25px;
-    box-shadow: 0 1px 6px #3c3c3c44;
+    box-shadow: 0 6px 6px #3c3c3c44;
     overflow-y: auto;
     overflow-x: hidden;
     display: none;

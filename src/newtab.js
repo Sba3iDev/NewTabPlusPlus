@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
     columns: 4,
     showClock: true,
     showSearch: true,
+    showShortcut: true,
     showWeather: false,
     backgroundType: "default",
     backgroundValue: "",
@@ -915,14 +916,20 @@ async function openSettingsModal() {
         <form class="settings-form">
             <div class="setting-group">
                 <div class="setting-row">
+                    <input type="checkbox" id="show-clock-checkbox" name="showClock" class="setting-input">
+                    <label for="show-clock-checkbox" class="setting-label">Show Clock</label>
+                </div>
+            </div>
+            <div class="setting-group">
+                <div class="setting-row">
                     <input type="checkbox" id="show-search-checkbox" name="showSearch" class="setting-input">
                     <label for="show-search-checkbox" class="setting-label">Show Search Bar</label>
                 </div>
             </div>
             <div class="setting-group">
                 <div class="setting-row">
-                    <input type="checkbox" id="show-clock-checkbox" name="showClock" class="setting-input">
-                    <label for="show-clock-checkbox" class="setting-label">Show Clock</label>
+                    <input type="checkbox" id="show-shortcut-checkbox" name="showShortcut" class="setting-input">
+                    <label for="show-shortcut-checkbox" class="setting-label">Show Shortcuts</label>
                 </div>
             </div>
             <div class="setting-group">
@@ -1029,6 +1036,7 @@ async function openSettingsModal() {
         }
         toggleSearchVisibility(tempSettings.showSearch);
         toggleClockVisibility(tempSettings.showClock);
+        toggleShortcutVisibility(tempSettings.showShortcut);
         await applyBackground(tempSettings.backgroundType, tempSettings.backgroundValue);
         await safeSyncStorage(STORAGE_KEYS.SETTINGS, tempSettings);
         closeModal();
@@ -1036,6 +1044,7 @@ async function openSettingsModal() {
     const handleCancel = async () => {
         toggleSearchVisibility(originalSettings.showSearch);
         toggleClockVisibility(originalSettings.showClock);
+        toggleShortcutVisibility(originalSettings.showShortcut);
         await applyBackground(originalSettings.backgroundType, originalSettings.backgroundValue);
         closeModal();
     };
@@ -1048,13 +1057,18 @@ async function openSettingsModal() {
     const form = modal.querySelector(".settings-form");
     const showSearchCheckbox = form.querySelector('[name="showSearch"]');
     const showClockCheckbox = form.querySelector('[name="showClock"]');
+    const showShortcutCheckbox = form.querySelector('[name="showShortcut"]');
     showSearchCheckbox.checked = tempSettings.showSearch;
     showClockCheckbox.checked = tempSettings.showClock;
+    showShortcutCheckbox.checked = tempSettings.showShortcut;
     showSearchCheckbox.addEventListener("change", (e) => {
         tempSettings.showSearch = e.target.checked;
     });
     showClockCheckbox.addEventListener("change", (e) => {
         tempSettings.showClock = e.target.checked;
+    });
+    showShortcutCheckbox.addEventListener("change", (e) => {
+        tempSettings.showShortcut = e.target.checked;
     });
     const backgroundTypeSelect = form.querySelector("#background-type-select");
     const backgroundColorContainer = form.querySelector(".background-color-container");
@@ -1064,11 +1078,11 @@ async function openSettingsModal() {
     const backgroundImageInput = form.querySelector("#background-image-input");
     const backgroundFileInput = form.querySelector("#background-file-input");
     backgroundTypeSelect.value = tempSettings.backgroundType || "default";
-    const updateBackgroundVisibility = () => {
+    function updateBackgroundVisibility() {
         backgroundColorContainer.classList.toggle("show", tempSettings.backgroundType === "color");
         backgroundImageContainer.classList.toggle("show", tempSettings.backgroundType === "image");
         backgroundUploadContainer.classList.toggle("show", tempSettings.backgroundType === "upload");
-    };
+    }
     updateBackgroundVisibility();
     if (tempSettings.backgroundType === "color") {
         backgroundColorInput.value = tempSettings.backgroundValue;
@@ -1136,6 +1150,13 @@ function toggleClockVisibility(show) {
         } else {
             stopClock();
         }
+    }
+}
+
+function toggleShortcutVisibility(show) {
+    const shortcutContainer = document.querySelector(".shortcuts-grid");
+    if (shortcutContainer) {
+        shortcutContainer.style.display = show ? "" : "none";
     }
 }
 
@@ -1276,6 +1297,7 @@ async function initialize() {
         if (data[STORAGE_KEYS.SETTINGS]) {
             toggleSearchVisibility(data[STORAGE_KEYS.SETTINGS].showSearch);
             toggleClockVisibility(data[STORAGE_KEYS.SETTINGS].showClock);
+            toggleShortcutVisibility(data[STORAGE_KEYS.SETTINGS].showShortcut);
             await applyBackground(
                 data[STORAGE_KEYS.SETTINGS].backgroundType || "default",
                 data[STORAGE_KEYS.SETTINGS].backgroundValue || ""

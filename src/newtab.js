@@ -75,6 +75,7 @@ const DOMAINS = {
 };
 const suggestionCache = new Map();
 let clockIntervalId = null;
+let isOnline = navigator.onLine;
 
 function getStorageSize(data) {
     return new TextEncoder().encode(JSON.stringify(data)).length;
@@ -110,6 +111,9 @@ function getSimpleIcon(brandName) {
 }
 
 function getFaviconUrl(url) {
+    if (!isOnline) {
+        return null;
+    }
     try {
         url = url.replace(/:\/\/(www\.|web\.|chat\.|m\.|mobile\.|app\.)/, "://");
         const domain = new URL(url);
@@ -134,6 +138,11 @@ function getInitialCharacter(text) {
 }
 
 function createFallbackIconSvg(url, char) {
+    if (!isOnline) {
+        return `data:image/svg+xml,${encodeURIComponent(
+            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
+        )}`;
+    }
     try {
         const domain = new URL(url).hostname;
         return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
@@ -613,11 +622,22 @@ function renderShortcuts(shortcuts) {
         iconContainer.className = "shortcut-icon";
         const img = document.createElement("img");
         img.alt = `${shortcut.title} favicon`;
-        img.src = getFaviconUrl(shortcut.url);
-        img.addEventListener("error", () => {
+        if (isOnline) {
+            const faviconUrl = getFaviconUrl(shortcut.url);
+            if (faviconUrl) {
+                img.src = faviconUrl;
+                img.addEventListener("error", () => {
+                    const initialChar = getInitialCharacter(shortcut.title);
+                    img.src = createFallbackIconSvg(shortcut.url, initialChar);
+                });
+            } else {
+                const initialChar = getInitialCharacter(shortcut.title);
+                img.src = createFallbackIconSvg(shortcut.url, initialChar);
+            }
+        } else {
             const initialChar = getInitialCharacter(shortcut.title);
             img.src = createFallbackIconSvg(shortcut.url, initialChar);
-        });
+        }
         iconContainer.appendChild(img);
         card.appendChild(iconContainer);
         const title = document.createElement("div");
@@ -1297,7 +1317,6 @@ async function initialize() {
         if (data[STORAGE_KEYS.SETTINGS]) {
             toggleSearchVisibility(data[STORAGE_KEYS.SETTINGS].showSearch);
             toggleClockVisibility(data[STORAGE_KEYS.SETTINGS].showClock);
-            toggleShortcutVisibility(data[STORAGE_KEYS.SETTINGS].showShortcut);
             await applyBackground(
                 data[STORAGE_KEYS.SETTINGS].backgroundType || "default",
                 data[STORAGE_KEYS.SETTINGS].backgroundValue || ""
@@ -1436,8 +1455,18 @@ async function initialize() {
                 openSettingsModal();
             }
         });
+        window.addEventListener("offline", () => {
+            isOnline = false;
+        });
+        window.addEventListener("online", async () => {
+            isOnline = true;
+            await refreshShortcuts();
+        });
         renderHeader();
         renderShortcuts(data[STORAGE_KEYS.SHORTCUTS]);
+        if (data[STORAGE_KEYS.SETTINGS]) {
+            toggleShortcutVisibility(data[STORAGE_KEYS.SETTINGS].showShortcut);
+        }
         renderFooter();
     } catch (error) {
         console.error("Initialization failed:", error);

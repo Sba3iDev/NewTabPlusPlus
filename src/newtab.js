@@ -4,6 +4,7 @@ const STORAGE_KEYS = {
     VERSION: "version",
     SEARCH_HISTORY: "searchHistory",
     UPLOADED_BACKGROUND: "uploadedBackground",
+    WALLPAPER_URL: "wallpaperUrl",
 };
 const CURRENT_VERSION = "1.0.0";
 const MAX_SHORTCUTS = 20;
@@ -464,13 +465,14 @@ function closeModal() {
 function showErrorModal(message) {
     const modalContent = `
         <div class="error-modal">
-            <p class="error-message">${message}</p>
+            <p class="error-message"></p>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" id="ok-btn">OK</button>
             </div>
         </div>
     `;
     const modal = createModal("Error", modalContent);
+    modal.querySelector(".error-message").textContent = message;
     const okBtn = modal.querySelector("#ok-btn");
     okBtn.addEventListener("click", closeModal);
     okBtn.focus();
@@ -768,12 +770,12 @@ function openEditModal(shortcutId) {
             <form id="shortcut-form" data-shortcut-id="${shortcutId}">
                 <div class="form-group">
                     <label class="form-label" for="shortcut-title">Title</label>
-                    <input type="text" id="shortcut-title" class="form-input" required maxlength="50" value="${shortcut.title}">
+                    <input type="text" id="shortcut-title" class="form-input" required maxlength="50" value="">
                     <div class="form-error"></div>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="shortcut-url">URL</label>
-                    <input type="url" id="shortcut-url" class="form-input" required value="${shortcut.url}">
+                    <input type="url" id="shortcut-url" class="form-input" required value="">
                     <div class="form-error"></div>
                 </div>
                 <div class="modal-footer">
@@ -783,6 +785,8 @@ function openEditModal(shortcutId) {
             </form>
         `;
         const modal = createModal("Edit Shortcut", modalContent);
+        modal.querySelector("#shortcut-title").value = shortcut.title;
+        modal.querySelector("#shortcut-url").value = shortcut.url;
         const cancelBtn = modal.querySelector(".btn-secondary");
         if (cancelBtn) {
             cancelBtn.addEventListener("click", closeModal);
@@ -868,7 +872,7 @@ async function handleEditShortcut(id, title, url) {
 function showConfirmModal(message, onConfirm) {
     const modalContent = `
         <div class="confirm-modal">
-            <p class="confirm-message">${message}</p>
+            <p class="confirm-message"></p>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
                 <button type="button" class="btn btn-danger" id="delete-btn">Delete</button>
@@ -876,6 +880,7 @@ function showConfirmModal(message, onConfirm) {
         </div>
     `;
     const modal = createModal("Confirm Action", modalContent);
+    modal.querySelector(".confirm-message").textContent = message;
     const cancelBtn = modal.querySelector("#cancel-btn");
     const deleteBtn = modal.querySelector("#delete-btn");
     cancelBtn.addEventListener("click", closeModal);
@@ -1035,6 +1040,7 @@ async function openSettingsModal() {
             if (uploadedDataUrl) {
                 try {
                     await chrome.storage.local.set({ [STORAGE_KEYS.UPLOADED_BACKGROUND]: uploadedDataUrl });
+                    await chrome.storage.local.remove(STORAGE_KEYS.WALLPAPER_URL);
                 } catch (error) {
                     console.error("Failed to save uploaded background:", error);
                     const uploadErrorEl = modal.querySelector(".background-upload-container .form-error");
@@ -1047,11 +1053,20 @@ async function openSettingsModal() {
                 }
             }
             tempSettings.backgroundValue = "";
+        } else if (tempSettings.backgroundType === "image") {
+            try {
+                await chrome.storage.local.set({ [STORAGE_KEYS.WALLPAPER_URL]: tempSettings.backgroundValue });
+                await chrome.storage.local.remove(STORAGE_KEYS.UPLOADED_BACKGROUND);
+                tempSettings.backgroundValue = "";
+            } catch (error) {
+                console.error("Failed to save wallpaper URL:", error);
+            }
         } else {
             try {
                 await chrome.storage.local.remove(STORAGE_KEYS.UPLOADED_BACKGROUND);
+                await chrome.storage.local.remove(STORAGE_KEYS.WALLPAPER_URL);
             } catch (error) {
-                console.error("Failed to remove uploaded background:", error);
+                console.error("Failed to remove background:", error);
             }
         }
         toggleSearchVisibility(tempSettings.showSearch);
@@ -1197,12 +1212,17 @@ async function applyBackground(type, value) {
                 body.style.backgroundImage = "";
             }
         } else if (type === "image") {
-            if (isValidUrl(value)) {
-                body.style.backgroundImage = `url('${value}')`;
+            const { [STORAGE_KEYS.WALLPAPER_URL]: imageUrl } = await chrome.storage.local.get(
+                STORAGE_KEYS.WALLPAPER_URL
+            );
+            if (imageUrl && isValidUrl(imageUrl)) {
+                body.style.backgroundImage = `url('${imageUrl}')`;
                 body.style.backgroundSize = "cover";
                 body.style.backgroundPosition = "center";
                 body.style.backgroundRepeat = "no-repeat";
                 body.style.backgroundAttachment = "fixed";
+            } else {
+                body.style.backgroundImage = "";
             }
         } else if (type === "upload") {
             const { [STORAGE_KEYS.UPLOADED_BACKGROUND]: dataUrl } = await chrome.storage.local.get(
@@ -1215,7 +1235,11 @@ async function applyBackground(type, value) {
                 body.style.backgroundRepeat = "no-repeat";
                 body.style.backgroundAttachment = "fixed";
             } else {
-                await applyBackground("default", "");
+                body.style.backgroundImage = "";
+                body.style.backgroundSize = "";
+                body.style.backgroundPosition = "";
+                body.style.backgroundRepeat = "";
+                body.style.backgroundAttachment = "";
             }
         }
     } catch (error) {

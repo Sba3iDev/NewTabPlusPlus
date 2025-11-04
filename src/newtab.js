@@ -1060,6 +1060,13 @@ async function openSettingsModal() {
                 tempSettings.backgroundValue = "";
             } catch (error) {
                 console.error("Failed to save wallpaper URL:", error);
+                const imageErrorEl = modal.querySelector(".background-image-container .form-error");
+                imageErrorEl.textContent = error.message?.includes("QUOTA")
+                    ? "Storage quota exceeded. Please try freeing up space."
+                    : "Failed to save wallpaper URL. Please try again.";
+                hasValidationErrors = true;
+                modalRoot.hasErrors = true;
+                return;
             }
         } else {
             try {

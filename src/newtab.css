@@ -416,7 +416,7 @@ footer {
     align-items: center;
     pointer-events: auto;
     justify-content: center;
-    margin: 17px 15px 0;
+    margin: 17px 20px 0;
     transition: all var(--transition-duration) var(--transition-timing);
 }
 
@@ -742,6 +742,10 @@ input[type="file"]::file-selector-button:hover {
 
     .shortcut {
         width: 90px;
+    }
+
+    .shortcut-add-button {
+        margin: 17px 15px 0;
     }
 
     .clock-time {

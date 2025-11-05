@@ -1,0 +1,95 @@
+:root {
+    --color-background: #ffffff;
+    --color-text: #333333;
+    --color-primary: #2196f3;
+    --color-secondary: #757575;
+    --color-surface: #e8e8e9;
+    --color-error: #b00020;
+    --color-success: #4caf50;
+    --font-primary: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --spacing-unit: 8px;
+    --spacing-medium: calc(var(--spacing-unit) * 2);
+    --spacing-large: calc(var(--spacing-unit) * 3);
+    --transition-duration: 200ms;
+    --transition-timing: ease-in-out;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-background: #3c3c3c;
+        --color-text: #e8eaed;
+        --color-surface: #505050;
+        --color-success: #81c784;
+    }
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-primary);
+    background-color: var(--color-background);
+    color: var(--color-text);
+    width: 300px;
+    min-height: 150px;
+}
+
+.popup-container {
+    padding: var(--spacing-large);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+}
+
+.popup-container header h2 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: var(--spacing-large);
+}
+
+#add-shortcut-btn {
+    width: 100%;
+    padding: 12px 24px;
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background-color var(--transition-duration) var(--transition-timing);
+}
+
+#add-shortcut-btn:hover {
+    filter: brightness(1.1);
+}
+
+#add-shortcut-btn:disabled {
+    background-color: var(--color-secondary);
+    cursor: not-allowed;
+}
+
+#status-message {
+    margin-top: var(--spacing-medium);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    display: none;
+}
+
+#status-message.success {
+    background-color: var(--color-success);
+    color: white;
+    display: block;
+}
+
+#status-message.error {
+    background-color: var(--color-error);
+    color: white;
+    display: block;
+}

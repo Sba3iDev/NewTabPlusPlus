@@ -73,6 +73,9 @@ const DOMAINS = {
     "marketingplatform.google.com/about": "googlemarketingplatform",
     "campaignmanager.google.com/trafficking": "googlecampaignmanager360",
     "google.com/fit": "googlefit",
+    "npmjs.com": "npm",
+    "chatgpt.com": "openai",
+    "steampowered.com": "steam",
 };
 const suggestionCache = new Map();
 let clockIntervalId = null;
@@ -116,7 +119,7 @@ function getFaviconUrl(url) {
         return null;
     }
     try {
-        url = url.replace(/:\/\/(www\.|web\.|chat\.|m\.|mobile\.|app\.)/, "://");
+        url = url.replace(/:\/\/(www\.|web\.|chat\.|m\.|mobile\.|app\.|store\.)/, "://");
         const domain = new URL(url);
         const pathMatch = domain.pathname === "/" ? null : domain.pathname.match(/^\/[^\/]+/);
         const pathName = pathMatch ? pathMatch[0] : "";
@@ -1219,9 +1222,7 @@ async function applyBackground(type, value) {
                 body.style.backgroundImage = "";
             }
         } else if (type === "image") {
-            const { [STORAGE_KEYS.WALLPAPER_URL]: imageUrl } = await chrome.storage.local.get(
-                STORAGE_KEYS.WALLPAPER_URL
-            );
+            const { [STORAGE_KEYS.WALLPAPER_URL]: imageUrl } = await chrome.storage.local.get(STORAGE_KEYS.WALLPAPER_URL);
             if (imageUrl && isValidUrl(imageUrl)) {
                 body.style.backgroundImage = `url('${imageUrl}')`;
                 body.style.backgroundSize = "cover";
@@ -1499,6 +1500,11 @@ async function initialize() {
             toggleShortcutVisibility(data[STORAGE_KEYS.SETTINGS].showShortcut);
         }
         renderFooter();
+        chrome.storage.onChanged.addListener(async (changes) => {
+            if (changes.shortcuts) {
+                await refreshShortcuts();
+            }
+        });
     } catch (error) {
         console.error("Initialization failed:", error);
         document.getElementById("app").innerHTML = `

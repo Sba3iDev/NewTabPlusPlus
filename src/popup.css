@@ -20,6 +20,8 @@
         --color-text: #e8eaed;
         --color-surface: #505050;
         --color-success: #81c784;
+        --color-primary: #42a5f5;
+        --color-error: #ef5350;
     }
 }
 
@@ -34,7 +36,6 @@ body {
     background-color: var(--color-background);
     color: var(--color-text);
     width: 300px;
-    min-height: 150px;
 }
 
 .popup-container {

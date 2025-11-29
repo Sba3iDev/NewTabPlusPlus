@@ -37,46 +37,6 @@ const STORAGE_LIMITS = {
     QUOTA_BYTES_PER_ITEM: 8192,
     LOCAL_STORAGE_KEY: "newtab_data",
 };
-const DOMAINS = {
-    "mail.google.com/mail": "gmail",
-    "google.com/maps": "googlemaps",
-    "drive.google.com/drive": "googledrive",
-    "docs.google.com/document": "googledocs",
-    "docs.google.com/spreadsheets": "googlesheets",
-    "docs.google.com/presentation": "googleslides",
-    "docs.google.com/forms": "googleforms",
-    "calendar.google.com/calendar": "googlecalendar",
-    "meet.google.com/landing": "googlemeet",
-    "mail.google.com/chat": "googlechat",
-    "photos.google.com": "googlephotos",
-    "studio.youtube.com/channel": "youtubestudio",
-    "music.youtube.com": "youtubemusic",
-    "tv.youtube.com": "youtubetv",
-    "translate.google.com": "googletranslate",
-    "news.google.com": "googlenews",
-    "gemini.google.com": "googlegemini",
-    "play.google.com": "googleplay",
-    "keep.google.com": "googlekeep",
-    "tasks.google.com": "googletasks",
-    "classroom.google.com": "googleclassroom",
-    "earth.google.com": "googleearth",
-    "scholar.google.com": "googlescholar",
-    "analytics.google.com": "googleanalytics",
-    "ads.google.com": "googleads",
-    "tagmanager.google.com": "googletagmanager",
-    "console.cloud.google.com": "googlecloud",
-    "assistant.google.com": "googleassistant",
-    "tv.google.com": "googletv",
-    "pay.google.com": "googlepay",
-    "colab.research.google.com": "googlecolab",
-    "cloudstorage.google.com": "googlecloudstorage",
-    "marketingplatform.google.com/about": "googlemarketingplatform",
-    "campaignmanager.google.com/trafficking": "googlecampaignmanager360",
-    "google.com/fit": "googlefit",
-    "npmjs.com": "npm",
-    "chatgpt.com": "openai",
-    "steampowered.com": "steam",
-};
 const suggestionCache = new Map();
 let clockIntervalId = null;
 let isOnline = navigator.onLine;
@@ -105,26 +65,22 @@ async function safeSyncStorage(key, value) {
     }
 }
 
-function getSimpleIcon(brandName) {
-    const slug = brandName
-        .toLowerCase()
-        .trim()
-        .replace(/&/g, "and")
-        .replace(/[^a-z0-9]/g, "");
-    return `https://cdn.simpleicons.org/${slug}`;
-}
-
-function getFaviconUrl(url) {
+function getFaviconUrl(url, attempt = 0) {
     if (!isOnline) {
         return null;
     }
+    const services = [
+        (domain) => `https://favicon.im/${domain.hostname}`,
+        (domain) => `https://${domain.hostname}/favicon.ico`,
+        (domain) => `https://icons.duckduckgo.com/ip3/${domain.hostname}.ico`,
+        (domain) => `https://www.google.com/s2/favicons?domain=${domain.hostname}&sz=128`,
+    ];
+    if (attempt >= services.length) {
+        return null;
+    }
     try {
-        url = url.replace(/:\/\/(www\.|web\.|chat\.|m\.|mobile\.|app\.|store\.)/, "://");
         const domain = new URL(url);
-        const pathMatch = domain.pathname === "/" ? null : domain.pathname.match(/^\/[^\/]+/);
-        const pathName = pathMatch ? pathMatch[0] : "";
-        const brandName = DOMAINS[`${domain.hostname}${pathName}`] || domain.hostname.split(".")[0];
-        return getSimpleIcon(brandName);
+        return services[attempt](domain);
     } catch (e) {
         return null;
     }
@@ -141,20 +97,10 @@ function getInitialCharacter(text) {
     return text.trim()[0].toUpperCase();
 }
 
-function createFallbackIconSvg(url, char) {
-    if (!isOnline) {
-        return `data:image/svg+xml,${encodeURIComponent(
-            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
-        )}`;
-    }
-    try {
-        const domain = new URL(url).hostname;
-        return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-    } catch (e) {
-        return `data:image/svg+xml,${encodeURIComponent(
-            `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
-        )}`;
-    }
+function createFallbackIconSvg(char) {
+    return `data:image/svg+xml,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90" text-anchor="middle" x="50">${char}</text></svg>`
+    )}`;
 }
 
 function isValidUrl(url) {
@@ -627,21 +573,29 @@ function renderShortcuts(shortcuts) {
         iconContainer.className = "shortcut-icon";
         const img = document.createElement("img");
         img.alt = `${shortcut.title} favicon`;
+        const initialChar = getInitialCharacter(shortcut.title);
         if (isOnline) {
-            const faviconUrl = getFaviconUrl(shortcut.url);
+            const faviconUrl = getFaviconUrl(shortcut.url, 0);
             if (faviconUrl) {
                 img.src = faviconUrl;
-                img.addEventListener("error", () => {
-                    const initialChar = getInitialCharacter(shortcut.title);
-                    img.src = createFallbackIconSvg(shortcut.url, initialChar);
+                img.dataset.attempt = "0";
+                img.addEventListener("error", function () {
+                    const currentAttempt = parseInt(this.dataset.attempt || 0);
+                    const nextAttempt = currentAttempt + 1;
+                    const nextUrl = getFaviconUrl(shortcut.url, nextAttempt);
+                    if (nextUrl) {
+                        this.src = nextUrl;
+                        this.dataset.attempt = nextAttempt.toString();
+                    } else {
+                        this.src = createFallbackIconSvg(initialChar);
+                        this.removeEventListener("error", arguments.callee);
+                    }
                 });
             } else {
-                const initialChar = getInitialCharacter(shortcut.title);
-                img.src = createFallbackIconSvg(shortcut.url, initialChar);
+                img.src = createFallbackIconSvg(initialChar);
             }
         } else {
-            const initialChar = getInitialCharacter(shortcut.title);
-            img.src = createFallbackIconSvg(shortcut.url, initialChar);
+            img.src = createFallbackIconSvg(initialChar);
         }
         iconContainer.appendChild(img);
         card.appendChild(iconContainer);

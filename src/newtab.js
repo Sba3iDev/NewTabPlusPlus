@@ -652,7 +652,7 @@ function renderShortcuts(shortcuts) {
             if (isOnline) {
                 const faviconUrl = getFaviconUrl(shortcut.url);
                 if (faviconUrl) {
-                    img.src = faviconUrl;
+                    img.crossOrigin = "anonymous";
                     img.addEventListener("load", async function () {
                         if (!this.dataset.cached) {
                             const dataUrl = convertImageToDataUrl(this);
@@ -664,6 +664,7 @@ function renderShortcuts(shortcuts) {
                     img.addEventListener("error", function () {
                         this.src = createFallbackIconSvg(initialChar);
                     });
+                    img.src = faviconUrl;
                 } else {
                     img.src = createFallbackIconSvg(initialChar);
                 }

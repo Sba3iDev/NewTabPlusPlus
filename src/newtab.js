@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
     UPLOADED_BACKGROUND: "uploadedBackground",
     WALLPAPER_URL: "wallpaperUrl",
 };
+const ICON_CACHE_KEY = "cachedIcons";
+const MAX_CACHED_ICONS = 100;
 const CURRENT_VERSION = "1.0.0";
 const MAX_SHORTCUTS = 20;
 const MAX_SEARCH_HISTORY = 50;
@@ -62,6 +64,81 @@ async function safeSyncStorage(key, value) {
         } else {
             throw error;
         }
+    }
+}
+
+async function getCachedIcon(url) {
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname;
+        const result = await chrome.storage.local.get(ICON_CACHE_KEY);
+        const cache = result[ICON_CACHE_KEY] || {};
+        if (cache[hostname]) {
+            return cache[hostname].dataUrl;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error retrieving cached icon:", error);
+        return null;
+    }
+}
+
+async function cacheIcon(url, dataUrl) {
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname;
+        const result = await chrome.storage.local.get(ICON_CACHE_KEY);
+        let cache = result[ICON_CACHE_KEY] || {};
+        if (Object.keys(cache).length >= MAX_CACHED_ICONS) {
+            let oldestKey = null;
+            let oldestTimestamp = Infinity;
+            for (const key in cache) {
+                if (cache[key].timestamp < oldestTimestamp) {
+                    oldestTimestamp = cache[key].timestamp;
+                    oldestKey = key;
+                }
+            }
+            if (oldestKey) {
+                delete cache[oldestKey];
+            }
+        }
+        cache[hostname] = {
+            dataUrl,
+            timestamp: Date.now(),
+        };
+
+        await chrome.storage.local.set({ [ICON_CACHE_KEY]: cache });
+    } catch (error) {
+        if (error.message?.includes("QUOTA")) {
+            try {
+                await chrome.storage.local.remove(ICON_CACHE_KEY);
+                const urlObj = new URL(url);
+                const hostname = urlObj.hostname;
+                const newCache = { [hostname]: { dataUrl, timestamp: Date.now() } };
+                await chrome.storage.local.set({ [ICON_CACHE_KEY]: newCache });
+            } catch (retryError) {
+                console.error("Error caching icon after quota clear:", retryError);
+            }
+        } else {
+            console.error("Error caching icon:", error);
+        }
+    }
+}
+
+function convertImageToDataUrl(imgElement) {
+    try {
+        const canvas = document.createElement("canvas");
+        canvas.width = imgElement.width || imgElement.naturalWidth || 64;
+        canvas.height = imgElement.height || imgElement.naturalHeight || 64;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return null;
+        }
+        ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL("image/png");
+    } catch (error) {
+        console.error("Error converting image to data URL:", error);
+        return null;
     }
 }
 
@@ -565,19 +642,35 @@ function renderShortcuts(shortcuts) {
         const img = document.createElement("img");
         img.alt = `${shortcut.title} favicon`;
         const initialChar = getInitialCharacter(shortcut.title);
-        if (isOnline) {
-            const faviconUrl = getFaviconUrl(shortcut.url);
-            if (faviconUrl) {
-                img.src = faviconUrl;
-                img.addEventListener("error", function () {
-                    this.src = createFallbackIconSvg(initialChar);
-                });
+        (async () => {
+            const cachedDataUrl = await getCachedIcon(shortcut.url);
+            if (cachedDataUrl) {
+                img.src = cachedDataUrl;
+                img.dataset.cached = "true";
+                return;
+            }
+            if (isOnline) {
+                const faviconUrl = getFaviconUrl(shortcut.url);
+                if (faviconUrl) {
+                    img.src = faviconUrl;
+                    img.addEventListener("load", async function () {
+                        if (!this.dataset.cached) {
+                            const dataUrl = convertImageToDataUrl(this);
+                            if (dataUrl) {
+                                await cacheIcon(shortcut.url, dataUrl);
+                            }
+                        }
+                    });
+                    img.addEventListener("error", function () {
+                        this.src = createFallbackIconSvg(initialChar);
+                    });
+                } else {
+                    img.src = createFallbackIconSvg(initialChar);
+                }
             } else {
                 img.src = createFallbackIconSvg(initialChar);
             }
-        } else {
-            img.src = createFallbackIconSvg(initialChar);
-        }
+        })();
         iconContainer.appendChild(img);
         card.appendChild(iconContainer);
         const title = document.createElement("div");

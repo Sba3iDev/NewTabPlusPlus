@@ -65,22 +65,13 @@ async function safeSyncStorage(key, value) {
     }
 }
 
-function getFaviconUrl(url, attempt = 0) {
+function getFaviconUrl(url) {
     if (!isOnline) {
-        return null;
-    }
-    const services = [
-        (domain) => `https://favicon.im/${domain.hostname}`,
-        (domain) => `https://${domain.hostname}/favicon.ico`,
-        (domain) => `https://icons.duckduckgo.com/ip3/${domain.hostname}.ico`,
-        (domain) => `https://www.google.com/s2/favicons?domain=${domain.hostname}&sz=128`,
-    ];
-    if (attempt >= services.length) {
         return null;
     }
     try {
         const domain = new URL(url);
-        return services[attempt](domain);
+        return `https://favicon.im/${domain.hostname}`;
     } catch (e) {
         return null;
     }
@@ -575,21 +566,11 @@ function renderShortcuts(shortcuts) {
         img.alt = `${shortcut.title} favicon`;
         const initialChar = getInitialCharacter(shortcut.title);
         if (isOnline) {
-            const faviconUrl = getFaviconUrl(shortcut.url, 0);
+            const faviconUrl = getFaviconUrl(shortcut.url);
             if (faviconUrl) {
                 img.src = faviconUrl;
-                img.dataset.attempt = "0";
                 img.addEventListener("error", function () {
-                    const currentAttempt = parseInt(this.dataset.attempt || 0);
-                    const nextAttempt = currentAttempt + 1;
-                    const nextUrl = getFaviconUrl(shortcut.url, nextAttempt);
-                    if (nextUrl) {
-                        this.src = nextUrl;
-                        this.dataset.attempt = nextAttempt.toString();
-                    } else {
-                        this.src = createFallbackIconSvg(initialChar);
-                        this.removeEventListener("error", arguments.callee);
-                    }
+                    this.src = createFallbackIconSvg(initialChar);
                 });
             } else {
                 img.src = createFallbackIconSvg(initialChar);

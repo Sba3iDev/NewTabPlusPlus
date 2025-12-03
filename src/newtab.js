@@ -13,12 +13,9 @@ const MAX_SHORTCUTS = 20;
 const MAX_SEARCH_HISTORY = 50;
 const MAX_DISPLAYED_ITEMS = 8;
 const DEFAULT_SETTINGS = {
-    theme: "system",
-    columns: 4,
     showClock: true,
     showSearch: true,
     showShortcut: true,
-    showWeather: false,
     backgroundType: "default",
     backgroundValue: "",
 };
@@ -37,10 +34,10 @@ const DEFAULT_SHORTCUTS = [
 const STORAGE_LIMITS = {
     QUOTA_BYTES: 102400,
     QUOTA_BYTES_PER_ITEM: 8192,
-    LOCAL_STORAGE_KEY: "newtab_data",
 };
 const suggestionCache = new Map();
 let clockIntervalId = null;
+let suggestionTimeoutId = null;
 let isOnline = navigator.onLine;
 
 function getStorageSize(data) {
@@ -51,16 +48,14 @@ async function safeSyncStorage(key, value) {
     const payload = { [key]: value };
     const size = getStorageSize(payload);
     if (size > STORAGE_LIMITS.QUOTA_BYTES_PER_ITEM) {
-        showErrorModal("Data size exceeds Chrome Sync storage limits. Falling back to local storage.");
-        localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(payload));
+        showErrorModal("Data size exceeds Chrome Sync storage limits. Please reduce the amount of data.");
         return;
     }
     try {
         await chrome.storage.sync.set(payload);
     } catch (error) {
         if (error.message?.includes("QUOTA")) {
-            showErrorModal("Chrome Sync storage quota exceeded. Falling back to local storage.");
-            localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(payload));
+            showErrorModal("Chrome Sync storage quota exceeded. Please reduce the amount of data.");
         } else {
             throw error;
         }
@@ -267,12 +262,10 @@ function renderCombinedDropdown(history, suggestions, container) {
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>`;
             deleteHistoryItem.title = "Remove from history";
-            historyDropdown.addEventListener("mousedown", (e) => {
-                e.preventDefault();
-            });
             deleteHistoryItem.addEventListener("click", async (e) => {
                 e.stopPropagation();
-                const updatedHistory = history.filter((h) => h.query !== entry.query);
+                const fullUpdatedHistory = await getSearchHistory();
+                const updatedHistory = fullUpdatedHistory.filter((h) => h.query !== entry.query);
                 await saveSearchHistory(updatedHistory);
                 const currentQuery = document.querySelector(".search-container input[name='q']").value.trim();
                 const filtered = filterSearchHistory(updatedHistory, currentQuery);
@@ -485,13 +478,7 @@ async function migrateStorage(currentVersion) {
 }
 
 async function initializeStorage() {
-    let data;
-    try {
-        data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
-    } catch (error) {
-        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
-        data = localData ? JSON.parse(localData) : {};
-    }
+    const data = await chrome.storage.sync.get([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.SHORTCUTS]);
     const updates = {};
     if (!data[STORAGE_KEYS.SETTINGS]) {
         updates[STORAGE_KEYS.SETTINGS] = DEFAULT_SETTINGS;
@@ -502,16 +489,14 @@ async function initializeStorage() {
     if (Object.keys(updates).length > 0) {
         const size = getStorageSize(updates);
         if (size > STORAGE_LIMITS.QUOTA_BYTES) {
-            showErrorModal("Initial data exceeds Chrome Sync storage limits. Using local storage.");
-            localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(updates));
+            showErrorModal("Initial data exceeds Chrome Sync storage limits.");
             return;
         }
         try {
             await chrome.storage.sync.set(updates);
         } catch (error) {
             if (error.message?.includes("QUOTA")) {
-                showErrorModal("Chrome Sync storage quota exceeded. Using local storage.");
-                localStorage.setItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY, JSON.stringify(updates));
+                showErrorModal("Chrome Sync storage quota exceeded when initializing data.");
             } else {
                 throw error;
             }
@@ -809,6 +794,14 @@ function openEditModal(shortcutId) {
         }
         const form = modal.querySelector("#shortcut-form");
         form.addEventListener("submit", handleFormSubmit);
+        form.querySelectorAll(".form-input").forEach((input) => {
+            input.addEventListener("input", () => {
+                input.classList.remove("error");
+                if (input.nextElementSibling) {
+                    input.nextElementSibling.textContent = "";
+                }
+            });
+        });
     });
 }
 
@@ -836,17 +829,8 @@ async function handleFormSubmit(event) {
 }
 
 async function handleAddShortcut(title, url) {
-    let shortcuts = [];
-    try {
-        const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
-        shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
-    } catch (error) {
-        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
-        if (localData) {
-            const parsed = JSON.parse(localData);
-            shortcuts = parsed[STORAGE_KEYS.SHORTCUTS] || [];
-        }
-    }
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+    const shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
     if (shortcuts.length >= MAX_SHORTCUTS) {
         showErrorModal(`Maximum of ${MAX_SHORTCUTS} shortcuts allowed`);
         return;
@@ -863,16 +847,8 @@ async function handleAddShortcut(title, url) {
 
 async function handleEditShortcut(id, title, url) {
     let shortcuts = [];
-    try {
-        const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
-        shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
-    } catch (error) {
-        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
-        if (localData) {
-            const parsed = JSON.parse(localData);
-            shortcuts = parsed[STORAGE_KEYS.SHORTCUTS] || [];
-        }
-    }
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+    shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
     const index = shortcuts.findIndex((s) => s.id === id);
     if (index === -1) return;
     shortcuts[index] = {
@@ -1296,17 +1272,8 @@ function showError(form, inputId, message) {
 }
 
 async function refreshShortcuts() {
-    let shortcuts = [];
-    try {
-        const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
-        shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
-    } catch (error) {
-        const localData = localStorage.getItem(STORAGE_LIMITS.LOCAL_STORAGE_KEY);
-        if (localData) {
-            const parsed = JSON.parse(localData);
-            shortcuts = parsed[STORAGE_KEYS.SHORTCUTS] || [];
-        }
-    }
+    const result = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
+    const shortcuts = result[STORAGE_KEYS.SHORTCUTS] || [];
     renderShortcuts(shortcuts);
 }
 
@@ -1351,7 +1318,6 @@ async function initialize() {
     try {
         let selectedHistoryIndex = -1;
         let blurTimeoutId = null;
-        let suggestionTimeoutId = null;
         if (typeof chrome === "undefined" || !chrome.storage) {
             throw new Error("Not running in extension context");
         }
@@ -1420,9 +1386,7 @@ async function initialize() {
                 const query = e.target.value.trim();
                 const history = await getSearchHistory();
                 const filteredHistory = filterSearchHistory(history, query);
-                if (suggestionTimeoutId) {
-                    clearTimeout(suggestionTimeoutId);
-                }
+                clearTimeout(suggestionTimeoutId);
                 selectedHistoryIndex = -1;
                 if (query) {
                     const currentQueryOption = filteredHistory.length === 0 ? [query] : [];

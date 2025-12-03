@@ -4,7 +4,7 @@
     "version": "1.0.0",
     "description": "Enhance your New Tab page with customizable shortcuts",
     "permissions": ["storage", "contextMenus", "activeTab"],
-    "host_permissions": ["https://suggestqueries.google.com/*"],
+    "host_permissions": ["https://suggestqueries.google.com/*", "https://favicon.im/*"],
     "action": {
         "default_popup": "src/popup.html",
         "default_title": "Add to NewTab++ Shortcuts"

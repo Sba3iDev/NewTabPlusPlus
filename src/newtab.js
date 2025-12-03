@@ -106,7 +106,6 @@ async function cacheIcon(url, dataUrl) {
             dataUrl,
             timestamp: Date.now(),
         };
-
         await chrome.storage.local.set({ [ICON_CACHE_KEY]: cache });
     } catch (error) {
         if (error.message?.includes("QUOTA")) {
@@ -122,23 +121,6 @@ async function cacheIcon(url, dataUrl) {
         } else {
             console.error("Error caching icon:", error);
         }
-    }
-}
-
-function convertImageToDataUrl(imgElement) {
-    try {
-        const canvas = document.createElement("canvas");
-        canvas.width = imgElement.width || imgElement.naturalWidth || 64;
-        canvas.height = imgElement.height || imgElement.naturalHeight || 64;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-            return null;
-        }
-        ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-        return canvas.toDataURL("image/png");
-    } catch (error) {
-        console.error("Error converting image to data URL:", error);
-        return null;
     }
 }
 
@@ -652,19 +634,21 @@ function renderShortcuts(shortcuts) {
             if (isOnline) {
                 const faviconUrl = getFaviconUrl(shortcut.url);
                 if (faviconUrl) {
-                    img.crossOrigin = "anonymous";
-                    img.addEventListener("load", async function () {
-                        if (!this.dataset.cached) {
-                            const dataUrl = convertImageToDataUrl(this);
-                            if (dataUrl) {
-                                await cacheIcon(shortcut.url, dataUrl);
-                            }
+                    try {
+                        const response = await chrome.runtime.sendMessage({
+                            action: "fetchFavicon",
+                            url: faviconUrl,
+                        });
+                        if (response && response.success && response.dataUrl) {
+                            img.src = response.dataUrl;
+                            await cacheIcon(shortcut.url, response.dataUrl);
+                        } else {
+                            img.src = createFallbackIconSvg(initialChar);
                         }
-                    });
-                    img.addEventListener("error", function () {
-                        this.src = createFallbackIconSvg(initialChar);
-                    });
-                    img.src = faviconUrl;
+                    } catch (error) {
+                        console.error("Error fetching favicon:", error);
+                        img.src = createFallbackIconSvg(initialChar);
+                    }
                 } else {
                     img.src = createFallbackIconSvg(initialChar);
                 }

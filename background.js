@@ -26,6 +26,25 @@ async function addShortcutToStorage(url, title) {
     }
 }
 
+async function fetchFaviconAsDataUrl(url) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error("Error fetching favicon:", error);
+        return null;
+    }
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "fetchSuggestions") {
         const query = request.query;
@@ -38,6 +57,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .catch((error) => {
                 console.error("Error fetching suggestions:", error);
                 sendResponse({ success: false, suggestions: [] });
+            });
+        return true;
+    } else if (request.action === "fetchFavicon") {
+        fetchFaviconAsDataUrl(request.url)
+            .then((dataUrl) => {
+                sendResponse({ success: !!dataUrl, dataUrl: dataUrl });
+            })
+            .catch((error) => {
+                console.error("Error in fetchFavicon handler:", error);
+                sendResponse({ success: false, dataUrl: null });
             });
         return true;
     } else if (request.action === "addCurrentTab") {

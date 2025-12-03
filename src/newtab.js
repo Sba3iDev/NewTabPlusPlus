@@ -1420,12 +1420,13 @@ async function initialize() {
                 const query = e.target.value.trim();
                 const history = await getSearchHistory();
                 const filteredHistory = filterSearchHistory(history, query);
-                renderCombinedDropdown(filteredHistory, [], historyDropdown);
-                selectedHistoryIndex = -1;
                 if (suggestionTimeoutId) {
                     clearTimeout(suggestionTimeoutId);
                 }
+                selectedHistoryIndex = -1;
                 if (query) {
+                    const currentQueryOption = filteredHistory.length === 0 ? [query] : [];
+                    renderCombinedDropdown(filteredHistory, currentQueryOption, historyDropdown);
                     suggestionTimeoutId = setTimeout(async () => {
                         let suggestions = suggestionCache.get(query);
                         if (!suggestions) {
@@ -1434,8 +1435,14 @@ async function initialize() {
                         }
                         const freshHistory = await getSearchHistory();
                         const freshFilteredHistory = filterSearchHistory(freshHistory, e.target.value.trim());
-                        renderCombinedDropdown(freshFilteredHistory, suggestions, historyDropdown);
-                    }, 0);
+                        const hasExactMatch =
+                            freshFilteredHistory.some((h) => h.query.toLowerCase() === query.toLowerCase()) ||
+                            suggestions.some((s) => s.toLowerCase() === query.toLowerCase());
+                        const finalSuggestions = hasExactMatch ? suggestions : [query, ...suggestions];
+                        renderCombinedDropdown(freshFilteredHistory, finalSuggestions, historyDropdown);
+                    }, 300);
+                } else {
+                    renderCombinedDropdown(filteredHistory, [], historyDropdown);
                 }
             });
             historyDropdown.addEventListener("mousedown", (e) => {

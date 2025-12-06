@@ -183,16 +183,21 @@ async function saveSearchHistory(history) {
 }
 
 async function addToSearchHistory(query) {
-    const history = await getSearchHistory();
-    const existingIndex = history.findIndex((entry) => entry.query.toLowerCase() === query.toLowerCase());
-    if (existingIndex !== -1) {
-        history.splice(existingIndex, 1);
+    if (query.includes(".") && !query.includes(" ") && !query.startsWith("http")) {
+        query = "https://" + query;
     }
-    history.unshift({ query, timestamp: Date.now() });
-    if (history.length > MAX_SEARCH_HISTORY) {
-        history.splice(MAX_SEARCH_HISTORY);
+    if (!isValidUrl(query)) {
+        const history = await getSearchHistory();
+        const existingIndex = history.findIndex((entry) => entry.query.toLowerCase() === query.toLowerCase());
+        if (existingIndex !== -1) {
+            history.splice(existingIndex, 1);
+        }
+        history.unshift({ query, timestamp: Date.now() });
+        if (history.length > MAX_SEARCH_HISTORY) {
+            history.splice(MAX_SEARCH_HISTORY);
+        }
+        await saveSearchHistory(history);
     }
-    await saveSearchHistory(history);
 }
 
 function filterSearchHistory(history, query) {
@@ -216,7 +221,6 @@ async function fetchSearchSuggestions(query) {
         }
         return [];
     } catch (error) {
-        console.error("Error fetching search suggestions:", error);
         return [];
     }
 }
@@ -253,6 +257,12 @@ function renderCombinedDropdown(history, suggestions, container) {
                     input.value = entry.query;
                     await addToSearchHistory(entry.query);
                     input.form.submit();
+                }
+            });
+            item.addEventListener("mousedown", async (e) => {
+                if (e.button === 1) {
+                    const url = "https://www.google.com/search?q=" + entry.query;
+                    window.open(url, "_blank");
                 }
             });
             const historyDropdown = document.querySelector(".search-history-dropdown");
@@ -301,7 +311,31 @@ function renderCombinedDropdown(history, suggestions, container) {
                 if (input) {
                     input.value = suggestion;
                     await addToSearchHistory(suggestion);
-                    input.form.submit();
+                    if (suggestion.includes(".") && !suggestion.includes(" ") && !suggestion.startsWith("http")) {
+                        suggestion = "https://" + suggestion;
+                    }
+                    if (isValidUrl(suggestion)) {
+                        location.assign(suggestion);
+                    } else {
+                        input.form.submit();
+                    }
+                }
+            });
+            item.addEventListener("mousedown", async (e) => {
+                const input = document.querySelector(".search-container input[name='q']");
+                if (e.button === 1) {
+                    await addToSearchHistory(suggestion);
+                    if (suggestion.includes(".") && !suggestion.includes(" ") && !suggestion.startsWith("http")) {
+                        suggestion = "https://" + suggestion;
+                    }
+                    if (isValidUrl(suggestion)) {
+                        window.open(suggestion, "_blank");
+                    } else {
+                        const url = "https://www.google.com/search?q=" + suggestion;
+                        window.open(url, "_blank");
+                    }
+                    input.value = "";
+                    input.blur();
                 }
             });
             container.appendChild(item);
@@ -1449,10 +1483,17 @@ async function initialize() {
                     e.preventDefault();
                     const selectedItem = items[selectedHistoryIndex];
                     if (selectedItem) {
-                        const query = selectedItem.getAttribute("data-query");
+                        let query = selectedItem.getAttribute("data-query");
                         searchInput.value = query;
                         await addToSearchHistory(query);
-                        searchForm.submit();
+                        if (query.includes(".") && !query.includes(" ") && !query.startsWith("http")) {
+                            query = "https://" + query;
+                        }
+                        if (isValidUrl(query)) {
+                            location.assign(query);
+                        } else {
+                            input.form.submit();
+                        }
                     }
                 } else if (e.key === "Escape") {
                     hideSearchHistory(historyDropdown);

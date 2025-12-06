@@ -55,7 +55,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 sendResponse({ success: true, suggestions: data[1] || [] });
             })
             .catch((error) => {
-                console.error("Error fetching suggestions:", error);
                 sendResponse({ success: false, suggestions: [] });
             });
         return true;

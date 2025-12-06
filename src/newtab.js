@@ -331,7 +331,7 @@ function renderCombinedDropdown(history, suggestions, container) {
                     if (isValidUrl(suggestion)) {
                         window.open(suggestion, "_blank");
                     } else {
-                        const url = "https://www.google.com/search?q=" + suggestion;
+                        const url = "https://www.google.com/search?q=" + encodeURIComponent(suggestion);
                         window.open(url, "_blank");
                     }
                     input.value = "";
@@ -1492,7 +1492,7 @@ async function initialize() {
                         if (isValidUrl(query)) {
                             location.assign(query);
                         } else {
-                            input.form.submit();
+                            searchInput.form.submit();
                         }
                     }
                 } else if (e.key === "Escape") {

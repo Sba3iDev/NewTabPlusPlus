@@ -605,15 +605,12 @@ footer {
 
 .settings-button {
     position: absolute;
-    top: 50%;
+    top: 10%;
     right: var(--spacing-medium);
-    transform: translateY(-50%);
     background: transparent;
     border: none;
     cursor: pointer;
     padding: var(--spacing-small);
-    width: 24px;
-    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -625,7 +622,7 @@ footer {
 .settings-button:hover {
     color: var(--color-primary);
     background-color: var(--hover-color);
-    transform: translateY(-50%) rotate(90deg);
+    transform: rotate(90deg);
 }
 
 .settings-form {
@@ -665,6 +662,10 @@ select.setting-input {
     height: 20px;
     cursor: pointer;
     accent-color: var(--color-primary);
+}
+
+.setting-input[type="checkbox"] + label {
+    cursor: pointer;
 }
 
 .background-color-container,

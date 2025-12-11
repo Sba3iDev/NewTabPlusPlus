@@ -1018,6 +1018,10 @@ async function openSettingsModal() {
                 <input type="file" id="background-file-input" accept="image/*" class="setting-input">
                 <div class="form-error"></div>
             </div>
+            <div class="donation-section setting-group">
+                <p class="donation-text">If you find this extension helpful, consider supporting us.</p>
+                <button type="button" id="paypal-donate-btn" class="btn btn-donation">Donate via PayPal</button>
+            </div>
         </form>
     `;
     let originalSettings;
@@ -1211,6 +1215,13 @@ async function openSettingsModal() {
         };
         reader.readAsDataURL(file);
     });
+    const paypalDonateBtn = modal.querySelector("#paypal-donate-btn");
+    if (paypalDonateBtn) {
+        paypalDonateBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            window.open("https://paypal.me/sba3idonation", "_blank");
+        });
+    }
     modal.querySelector("input, select").focus();
 }
 

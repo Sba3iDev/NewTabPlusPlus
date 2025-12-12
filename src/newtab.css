@@ -463,6 +463,26 @@ footer {
     box-shadow: var(--shadow-2);
     max-height: 90vh;
     overflow-y: auto;
+    scrollbar-width: auto;
+    scrollbar-color: var(--color-surface) transparent;
+}
+
+.modal-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-container::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+
+.modal-container::-webkit-scrollbar-thumb {
+    background-color: var(--color-surface);
+    border-radius: 4px;
+    transition: background-color var(--transition-duration) var(--transition-timing);
+}
+
+.modal-container::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-secondary);
 }
 
 .modal-header {
@@ -726,6 +746,128 @@ input[type="file"]::file-selector-button:hover {
     font-family: monospace;
 }
 
+.visually-hidden-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.upload-zone {
+    border: 2px dashed var(--color-secondary);
+    border-radius: 8px;
+    padding: 24px;
+    background-color: var(--hover-color);
+    cursor: pointer;
+    transition: all var(--transition-duration) var(--transition-timing);
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-zone:hover {
+    border-color: var(--color-primary);
+    background-color: rgba(33, 150, 243, 0.02);
+    transform: scale(1.01);
+}
+
+.upload-zone.drag-over {
+    border-color: var(--color-primary);
+    border-style: solid;
+    background-color: rgba(33, 150, 243, 0.05);
+    transform: scale(1.02);
+}
+
+.upload-zone.error {
+    border-color: var(--color-error);
+    background-color: rgba(176, 0, 32, 0.05);
+}
+
+.upload-zone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+}
+
+.upload-icon {
+    width: 48px;
+    height: 48px;
+    color: var(--color-secondary);
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.upload-text {
+    font-size: 0.95rem;
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.upload-subtext {
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+    margin-top: 4px;
+}
+
+.upload-preview-container {
+    display: none;
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: var(--color-surface);
+}
+
+.upload-preview-container.show {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.upload-preview-image {
+    max-width: 100%;
+    max-height: 150px;
+    border-radius: 4px;
+    object-fit: cover;
+    box-shadow: var(--shadow-1);
+}
+
+.upload-file-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--color-text);
+}
+
+.upload-file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upload-remove-btn {
+    background-color: transparent;
+    border: none;
+    color: var(--color-error);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    transition: background-color 150ms ease;
+    white-space: nowrap;
+    margin-left: 8px;
+}
+
+.upload-remove-btn:hover {
+    background-color: rgba(176, 0, 32, 0.1);
+}
+
 .donation-text {
     font-size: 13px;
     color: var(--color-secondary);
@@ -781,6 +923,24 @@ input[type="file"]::file-selector-button:hover {
 @media (max-width: 768px) {
     main {
         padding: var(--spacing-medium) var(--spacing-medium);
+    }
+
+    .upload-zone {
+        padding: 16px;
+        min-height: 150px;
+    }
+
+    .upload-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .upload-text {
+        font-size: 0.9rem;
+    }
+
+    .upload-subtext {
+        font-size: 0.75rem;
     }
 
     .search-container {
@@ -873,6 +1033,10 @@ input[type="file"]::file-selector-button:hover {
         max-width: 100%;
     }
 
+    .modal-container::-webkit-scrollbar {
+        width: 6px;
+    }
+
     .modal-header h2 {
         font-size: 1.125rem;
     }
@@ -917,6 +1081,24 @@ input[type="file"]::file-selector-button:hover {
 @media (max-width: 480px) {
     .search-container {
         margin: 30px auto var(--spacing-medium) auto;
+    }
+
+    .upload-zone {
+        padding: 12px;
+        min-height: 140px;
+    }
+
+    .upload-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .upload-text {
+        font-size: 0.85rem;
+    }
+
+    .upload-subtext {
+        font-size: 0.7rem;
     }
 
     .search-container form {

@@ -1015,7 +1015,25 @@ async function openSettingsModal() {
             </div>
             <div class="background-upload-container setting-group">
                 <label for="background-file-input" class="setting-label">Upload Background Image</label>
-                <input type="file" id="background-file-input" accept="image/*" class="setting-input">
+                <div class="upload-zone" id="upload-zone" role="button" tabindex="0" aria-label="Upload background image, drag and drop or click to browse">
+                    <input type="file" id="background-file-input" accept="image/*" class="visually-hidden-input">
+                    <div class="upload-zone-content">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <div class="upload-text">Drag & drop your image here</div>
+                        <div class="upload-subtext">or click to browse (Max 5MB, JPG/PNG/GIF)</div>
+                    </div>
+                </div>
+                <div class="upload-preview-container" id="upload-preview">
+                    <img class="upload-preview-image" id="preview-image" alt="Preview">
+                    <div class="upload-file-info">
+                        <span class="upload-file-name" id="file-name"></span>
+                        <button type="button" class="upload-remove-btn" id="remove-upload">Remove</button>
+                    </div>
+                </div>
                 <div class="form-error"></div>
             </div>
             <div class="donation-section setting-group">
@@ -1058,8 +1076,9 @@ async function openSettingsModal() {
         }
         if (tempSettings.backgroundType === "upload" && !uploadedDataUrl && originalSettings.backgroundType !== "upload") {
             const uploadErrorEl = modal.querySelector(".background-upload-container .form-error");
+            const uploadZone = modal.querySelector("#upload-zone");
             uploadErrorEl.textContent = "Please select an image file.";
-            modal.querySelector("#background-file-input").classList.add("error");
+            uploadZone.classList.add("error");
             hasValidationErrors = true;
         }
         if (tempSettings.backgroundType === "color" && tempSettings.backgroundValue === "") {
@@ -1071,9 +1090,9 @@ async function openSettingsModal() {
             if (imageInput && imageInput.classList.contains("error")) {
                 imageInput.focus();
             } else {
-                const fileInput = modal.querySelector("#background-file-input");
-                if (fileInput && fileInput.classList.contains("error")) {
-                    fileInput.focus();
+                const uploadZone = modal.querySelector("#upload-zone");
+                if (uploadZone && uploadZone.classList.contains("error")) {
+                    uploadZone.focus();
                 }
             }
             return;
@@ -1196,25 +1215,89 @@ async function openSettingsModal() {
     });
     backgroundFileInput.addEventListener("change", (e) => {
         const file = e.target.files[0];
-        const errorElement = backgroundFileInput.nextElementSibling;
+        const errorElement = modal.querySelector(".background-upload-container .form-error");
+        const uploadZone = modal.querySelector("#upload-zone");
+        const uploadPreview = modal.querySelector("#upload-preview");
+        const previewImage = modal.querySelector("#preview-image");
+        const fileName = modal.querySelector("#file-name");
         errorElement.textContent = "";
+        uploadZone.classList.remove("error");
         if (!file) return;
         const validation = validateUploadedFile(file);
         if (!validation.valid) {
             errorElement.textContent = validation.error;
             backgroundFileInput.value = "";
+            uploadZone.classList.add("error");
             return;
         }
         const reader = new FileReader();
         reader.onload = (event) => {
             uploadedDataUrl = event.target.result;
             tempSettings.backgroundType = "upload";
+            previewImage.src = event.target.result;
+            fileName.textContent = file.name;
+            uploadPreview.classList.add("show");
         };
         reader.onerror = () => {
             errorElement.textContent = "Failed to read image file.";
+            uploadZone.classList.add("error");
         };
         reader.readAsDataURL(file);
     });
+    const uploadZone = modal.querySelector("#upload-zone");
+    const uploadPreview = modal.querySelector("#upload-preview");
+    const previewImage = modal.querySelector("#preview-image");
+    const fileName = modal.querySelector("#file-name");
+    const removeUploadBtn = modal.querySelector("#remove-upload");
+    uploadZone.addEventListener("click", () => {
+        backgroundFileInput.click();
+    });
+    uploadZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.add("drag-over");
+    });
+    uploadZone.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.remove("drag-over");
+    });
+    uploadZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.remove("drag-over");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            backgroundFileInput.files = files;
+            backgroundFileInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    });
+    uploadZone.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            backgroundFileInput.click();
+        }
+    });
+    removeUploadBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        backgroundFileInput.value = "";
+        uploadedDataUrl = null;
+        uploadPreview.classList.remove("show");
+        previewImage.src = "";
+        fileName.textContent = "";
+        const errorElement = modal.querySelector(".background-upload-container .form-error");
+        errorElement.textContent = "";
+        uploadZone.classList.remove("error");
+    });
+    const { [STORAGE_KEYS.UPLOADED_BACKGROUND]: existingUpload } = await chrome.storage.local.get(
+        STORAGE_KEYS.UPLOADED_BACKGROUND
+    );
+    if (tempSettings.backgroundType === "upload" && existingUpload) {
+        uploadedDataUrl = existingUpload;
+        previewImage.src = existingUpload;
+        fileName.textContent = "Current background image";
+        uploadPreview.classList.add("show");
+    }
     const paypalDonateBtn = modal.querySelector("#paypal-donate-btn");
     if (paypalDonateBtn) {
         paypalDonateBtn.addEventListener("click", (e) => {

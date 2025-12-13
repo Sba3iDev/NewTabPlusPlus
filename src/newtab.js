@@ -1037,6 +1037,7 @@ async function openSettingsModal() {
                 <div class="form-error"></div>
             </div>
             <div class="donation-section setting-group">
+                <div class="donation-divider"></div>
                 <p class="donation-text">If you find this extension helpful, consider supporting us.</p>
                 <button type="button" id="paypal-donate-btn" class="btn btn-donation">Donate via PayPal</button>
             </div>

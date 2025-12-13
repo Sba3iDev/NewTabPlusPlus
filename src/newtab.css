@@ -872,6 +872,17 @@ input[type="file"]::file-selector-button:hover {
     background-color: rgba(176, 0, 32, 0.1);
 }
 
+.donation-section {
+    padding-top: var(--spacing-large);
+}
+
+.donation-divider {
+    width: 100%;
+    height: 1px;
+    background-color: var(--color-surface);
+    margin-bottom: var(--spacing-medium);
+}
+
 .donation-text {
     font-size: 13px;
     color: var(--color-secondary);

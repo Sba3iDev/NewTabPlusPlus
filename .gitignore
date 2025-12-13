@@ -10,6 +10,7 @@ build/
 # IDE and Editor files
 .idea/
 .vscode/
+screenshots/
 *.sublime-project
 *.sublime-workspace
 

@@ -41,14 +41,20 @@ _(Coming soon)_
 
 ```
 NewTab++/
-├── public/           # Static assets
-│   └── icons/        # Extension icons
 ├── src/              # Source code
-│   ├── newtab.css    # CSS
-│   ├── newtab.hrml   # Main page
-│   └── newtab.js     # Javascript
-├── manifest.json     # Extension manifest
-└── README.md         # This file
+│   ├── newtab.html   # New tab page markup
+│   ├── newtab.css    # New tab page styles
+│   ├── newtab.js     # New tab page script
+│   ├── popup.html    # Popup markup
+│   ├── popup.css     # Popup styles
+│   └── popup.js      # Popup script
+├── public/           # Static assets
+│   └── icons/        # Extension icons (128x128, 48x48, etc.)
+├── manifest.json     # Chrome extension manifest
+├── background.js     # Background/service worker script
+├── README.md         # This file
+├── PRIVACY.md        # Privacy policy
+└── .gitignore        # Git ignore rules
 ```
 
 ### Getting Started
@@ -63,8 +69,8 @@ Contributions are welcome! Please read our contribution guidelines before submit
 
 ## Credits
 
--   Website favicons provided by [Google's S2 Favicon Service](https://www.google.com/s2/favicons)
--   Extension icons need to be created and added to the `public/icons` directory with appropriate attribution
+-   Favicon service for shortcut icons
+-   Extension icons should be placed in `public/icons/` with the following sizes: 128x128, 48x48, and 16x16
 -   Inspired by various new tab extensions
 
 ## Support

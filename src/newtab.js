@@ -1024,7 +1024,7 @@ async function openSettingsModal() {
                             <line x1="12" y1="3" x2="12" y2="15"></line>
                         </svg>
                         <div class="upload-text">Drag & drop your image here</div>
-                        <div class="upload-subtext">or click to browse (Max 5MB, JPG/PNG/GIF)</div>
+                        <div class="upload-subtext">or click to browse (Max 1.5MB, JPG/PNG/GIF)</div>
                     </div>
                 </div>
                 <div class="upload-preview-container" id="upload-preview">
@@ -1185,6 +1185,9 @@ async function openSettingsModal() {
         backgroundColorContainer.classList.toggle("show", tempSettings.backgroundType === "color");
         backgroundImageContainer.classList.toggle("show", tempSettings.backgroundType === "image");
         backgroundUploadContainer.classList.toggle("show", tempSettings.backgroundType === "upload");
+        if (uploadedDataUrl && uploadPreview) {
+            uploadPreview.classList.add("show");
+        }
     }
     updateBackgroundVisibility();
     if (tempSettings.backgroundType === "color") {
@@ -1198,6 +1201,9 @@ async function openSettingsModal() {
             tempSettings.backgroundValue = "";
         }
         updateBackgroundVisibility();
+        if (tempSettings.backgroundType !== "upload" && uploadedDataUrl) {
+            uploadPreview.classList.remove("show");
+        }
     });
     backgroundColorInput.addEventListener("input", (e) => {
         tempSettings.backgroundType = "color";
@@ -1234,13 +1240,18 @@ async function openSettingsModal() {
         reader.onload = (event) => {
             uploadedDataUrl = event.target.result;
             tempSettings.backgroundType = "upload";
+            backgroundTypeSelect.value = "upload";
             previewImage.src = event.target.result;
             fileName.textContent = file.name;
             uploadPreview.classList.add("show");
+            updateBackgroundVisibility();
         };
         reader.onerror = () => {
             errorElement.textContent = "Failed to read image file.";
             uploadZone.classList.add("error");
+            uploadedDataUrl = null;
+            uploadPreview.classList.remove("show");
+            backgroundFileInput.value = "";
         };
         reader.readAsDataURL(file);
     });
@@ -1288,6 +1299,12 @@ async function openSettingsModal() {
         const errorElement = modal.querySelector(".background-upload-container .form-error");
         errorElement.textContent = "";
         uploadZone.classList.remove("error");
+        if (tempSettings.backgroundType === "upload") {
+            tempSettings.backgroundType = "default";
+            tempSettings.backgroundValue = "";
+            backgroundTypeSelect.value = "default";
+            updateBackgroundVisibility();
+        }
     });
     const { [STORAGE_KEYS.UPLOADED_BACKGROUND]: existingUpload } = await chrome.storage.local.get(
         STORAGE_KEYS.UPLOADED_BACKGROUND

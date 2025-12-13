@@ -662,6 +662,10 @@ footer {
     color: var(--color-text);
 }
 
+.background-upload-container .setting-label {
+    pointer-events: none;
+}
+
 .setting-row {
     display: flex;
     align-items: center;

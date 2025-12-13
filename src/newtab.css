@@ -662,6 +662,13 @@ footer {
     color: var(--color-text);
 }
 
+.setting-description {
+    font-size: 0.8rem;
+    color: var(--color-secondary);
+    margin: 0;
+    margin-top: 4px;
+}
+
 .background-upload-container .setting-label {
     pointer-events: none;
 }

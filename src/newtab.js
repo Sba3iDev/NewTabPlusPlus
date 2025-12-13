@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
     showShortcut: true,
     backgroundType: "default",
     backgroundValue: "",
+    rememberSearchHistory: true,
 };
 const DEFAULT_SHORTCUTS = [
     {
@@ -183,6 +184,11 @@ async function saveSearchHistory(history) {
 }
 
 async function addToSearchHistory(query) {
+    const { settings } = await chrome.storage.sync.get(STORAGE_KEYS.SETTINGS);
+    const rememberHistory = settings ? settings.rememberSearchHistory !== false : true;
+    if (!rememberHistory) {
+        return;
+    }
     if (query.includes(".") && !query.includes(" ") && !query.startsWith("http")) {
         query = "https://" + query;
     }
@@ -907,13 +913,13 @@ async function handleEditShortcut(id, title, url) {
     closeModal();
 }
 
-function showConfirmModal(message, onConfirm) {
+function showConfirmModal(message, delBtnName, onConfirm) {
     const modalContent = `
         <div class="confirm-modal">
             <p class="confirm-message"></p>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
-                <button type="button" class="btn btn-danger" id="delete-btn">Delete</button>
+                <button type="button" class="btn btn-danger" id="delete-btn">${delBtnName}</button>
             </div>
         </div>
     `;
@@ -940,7 +946,7 @@ async function handleDeleteShortcut(id) {
     const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
     const shortcut = shortcuts.find((s) => s.id === id);
     if (!shortcut) return;
-    showConfirmModal(`Are you sure you want to delete "${shortcut.title}"?`, async () => {
+    showConfirmModal(`Are you sure you want to delete "${shortcut.title}"?`, "Delete", async () => {
         const { shortcuts = [] } = await chrome.storage.sync.get(STORAGE_KEYS.SHORTCUTS);
         const filtered = shortcuts.filter((s) => s.id !== id);
         await chrome.storage.sync.set({ [STORAGE_KEYS.SHORTCUTS]: filtered });
@@ -996,6 +1002,17 @@ async function openSettingsModal() {
                 </div>
             </div>
             <div class="setting-group">
+                <div class="setting-row">
+                    <input type="checkbox" id="remember-search-history-checkbox" name="rememberSearchHistory" class="setting-input">
+                    <label for="remember-search-history-checkbox" class="setting-label">Remember search history</label>
+                </div>
+                <p class="setting-description">When enabled, your search queries will be saved and shown as suggestions. Disable to stop saving search history.</p>
+            </div>
+            <div class="setting-group">
+                <button type="button" id="clear-search-history-btn" class="btn btn-secondary">Clear all search history</button>
+                <p class="setting-description">Permanently delete all stored search queries. This cannot be undone.</p>
+            </div>
+            <div class="setting-group">
                 <label for="background-type-select" class="setting-label">Background Type</label>
                 <select id="background-type-select" class="setting-input">
                     <option value="default">Default</option>
@@ -1038,7 +1055,7 @@ async function openSettingsModal() {
             </div>
             <div class="donation-section setting-group">
                 <div class="donation-divider"></div>
-                <p class="donation-text">If you find this extension helpful, consider supporting us.</p>
+                <p class="donation-text">Like NewTab++? Support the project by making a donation.</p>
                 <button type="button" id="paypal-donate-btn" class="btn btn-donation">Donate via PayPal</button>
             </div>
         </form>
@@ -1162,9 +1179,12 @@ async function openSettingsModal() {
     const showSearchCheckbox = form.querySelector('[name="showSearch"]');
     const showClockCheckbox = form.querySelector('[name="showClock"]');
     const showShortcutCheckbox = form.querySelector('[name="showShortcut"]');
+    const rememberSearchHistoryCheckbox = form.querySelector('[name="rememberSearchHistory"]');
+    const clearSearchHistoryBtn = form.querySelector("#clear-search-history-btn");
     showSearchCheckbox.checked = tempSettings.showSearch;
     showClockCheckbox.checked = tempSettings.showClock;
     showShortcutCheckbox.checked = tempSettings.showShortcut;
+    rememberSearchHistoryCheckbox.checked = tempSettings.rememberSearchHistory !== false;
     showSearchCheckbox.addEventListener("change", (e) => {
         tempSettings.showSearch = e.target.checked;
     });
@@ -1173,6 +1193,26 @@ async function openSettingsModal() {
     });
     showShortcutCheckbox.addEventListener("change", (e) => {
         tempSettings.showShortcut = e.target.checked;
+    });
+    rememberSearchHistoryCheckbox.addEventListener("change", (e) => {
+        tempSettings.rememberSearchHistory = e.target.checked;
+    });
+    clearSearchHistoryBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        showConfirmModal("Are you sure you want to delete all search history? This cannot be undone.", "Clear", async () => {
+            try {
+                await chrome.storage.local.remove(STORAGE_KEYS.SEARCH_HISTORY);
+                clearSearchHistoryBtn.textContent = "Search history cleared";
+                clearSearchHistoryBtn.disabled = true;
+                setTimeout(() => {
+                    clearSearchHistoryBtn.textContent = "Clear all search history";
+                    clearSearchHistoryBtn.disabled = false;
+                }, 2000);
+            } catch (error) {
+                console.error("Error clearing search history:", error);
+                alert("Failed to clear search history. Please try again.");
+            }
+        });
     });
     const backgroundTypeSelect = form.querySelector("#background-type-select");
     const backgroundColorContainer = form.querySelector(".background-color-container");

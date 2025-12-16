@@ -82,19 +82,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === "performSearch") {
         const query = request.query || "";
         const disposition = request.disposition === "NEW_TAB" ? "NEW_TAB" : "CURRENT_TAB";
-        try {
-            chrome.search.query({ text: query, disposition }, () => {
-                if (chrome.runtime.lastError) {
-                    console.error("chrome.search.query error:", chrome.runtime.lastError);
-                    sendResponse({ success: false, error: chrome.runtime.lastError.message });
-                } else {
-                    sendResponse({ success: true });
-                }
-            });
-        } catch (err) {
-            console.error("Error performing search:", err);
-            sendResponse({ success: false, error: err.message });
-        }
+        chrome.search.query({ text: query, disposition }, () => {
+            if (chrome.runtime.lastError) {
+                console.error("chrome.search.query error:", chrome.runtime.lastError);
+                sendResponse({ success: false, error: chrome.runtime.lastError.message });
+            } else {
+                sendResponse({ success: true });
+            }
+        });
         return true;
     }
 });

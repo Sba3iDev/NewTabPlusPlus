@@ -260,9 +260,28 @@ function renderCombinedDropdown(history, suggestions, container) {
             item.addEventListener("click", async () => {
                 const input = document.querySelector(".search-container input[name='q']");
                 if (input) {
-                    input.value = entry.query;
-                    await addToSearchHistory(entry.query);
-                    input.form.submit();
+                    let query = entry.query;
+                    input.value = query;
+                    await addToSearchHistory(query);
+                    if (query.includes(".") && !query.includes(" ") && !query.startsWith("http")) {
+                        query = "https://" + query;
+                    }
+                    if (isValidUrl(query)) {
+                        location.assign(query);
+                    } else {
+                        try {
+                            await chrome.runtime.sendMessage({
+                                action: "performSearch",
+                                query: query,
+                                disposition: "CURRENT_TAB",
+                            });
+                        } catch (err) {
+                            console.error("Error sending search message:", err);
+                        }
+                    }
+                    setTimeout(() => {
+                        input.value = "";
+                    }, 0);
                 }
             });
             item.addEventListener("mousedown", async (e) => {
@@ -322,16 +341,28 @@ function renderCombinedDropdown(history, suggestions, container) {
             item.addEventListener("click", async () => {
                 const input = document.querySelector(".search-container input[name='q']");
                 if (input) {
-                    input.value = suggestion;
-                    await addToSearchHistory(suggestion);
-                    if (suggestion.includes(".") && !suggestion.includes(" ") && !suggestion.startsWith("http")) {
-                        suggestion = "https://" + suggestion;
+                    let query = suggestion;
+                    input.value = query;
+                    await addToSearchHistory(query);
+                    if (query.includes(".") && !query.includes(" ") && !query.startsWith("http")) {
+                        query = "https://" + query;
                     }
-                    if (isValidUrl(suggestion)) {
-                        location.assign(suggestion);
+                    if (isValidUrl(query)) {
+                        location.assign(query);
                     } else {
-                        input.form.submit();
+                        try {
+                            await chrome.runtime.sendMessage({
+                                action: "performSearch",
+                                query: query,
+                                disposition: "CURRENT_TAB",
+                            });
+                        } catch (err) {
+                            console.error("Error sending search message:", err);
+                        }
                     }
+                    setTimeout(() => {
+                        input.value = "";
+                    }, 0);
                 }
             });
             item.addEventListener("mousedown", async (e) => {

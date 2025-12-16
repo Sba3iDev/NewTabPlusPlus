@@ -267,8 +267,15 @@ function renderCombinedDropdown(history, suggestions, container) {
             });
             item.addEventListener("mousedown", async (e) => {
                 if (e.button === 1) {
-                    const url = "https://www.google.com/search?q=" + entry.query;
-                    window.open(url, "_blank");
+                    try {
+                        await chrome.runtime.sendMessage({
+                            action: "performSearch",
+                            query: entry.query,
+                            disposition: "NEW_TAB",
+                        });
+                    } catch (err) {
+                        console.error("Error sending search message:", err);
+                    }
                 }
             });
             const historyDropdown = document.querySelector(".search-history-dropdown");
@@ -330,15 +337,26 @@ function renderCombinedDropdown(history, suggestions, container) {
             item.addEventListener("mousedown", async (e) => {
                 const input = document.querySelector(".search-container input[name='q']");
                 if (e.button === 1) {
-                    await addToSearchHistory(suggestion);
-                    if (suggestion.includes(".") && !suggestion.includes(" ") && !suggestion.startsWith("http")) {
-                        suggestion = "https://" + suggestion;
-                    }
-                    if (isValidUrl(suggestion)) {
-                        window.open(suggestion, "_blank");
-                    } else {
-                        const url = "https://www.google.com/search?q=" + encodeURIComponent(suggestion);
-                        window.open(url, "_blank");
+                    try {
+                        await addToSearchHistory(suggestion);
+                        let maybeUrl = suggestion;
+                        if (maybeUrl.includes(".") && !maybeUrl.includes(" ") && !maybeUrl.startsWith("http")) {
+                            maybeUrl = "https://" + maybeUrl;
+                        }
+                        if (isValidUrl(maybeUrl)) {
+                            window.open(maybeUrl, "_blank");
+                        } else {
+                            await chrome.runtime.sendMessage({
+                                action: "performSearch",
+                                query: suggestion,
+                                disposition: "NEW_TAB",
+                            });
+                        }
+                    } catch (err) {
+                        console.error("Error handling middle-click suggestion:", err);
+                        if (isValidUrl(suggestion)) {
+                            window.open(suggestion, "_blank");
+                        }
                     }
                     input.value = "";
                     input.blur();
@@ -1479,7 +1497,6 @@ function renderSearch() {
     const searchContainer = document.createElement("div");
     searchContainer.className = "search-container";
     const form = document.createElement("form");
-    form.action = "https://www.google.com/search";
     form.autocomplete = "off";
     const searchIcon = document.createElement("span");
     searchIcon.className = "search-icon";
@@ -1539,9 +1556,9 @@ async function initialize() {
                 if (!input) {
                     return;
                 }
+                e.preventDefault();
                 let query = input.value.trim();
                 if (!query) {
-                    e.preventDefault();
                     input.value = "";
                     return;
                 }
@@ -1549,10 +1566,14 @@ async function initialize() {
                     query = "https://" + query;
                 }
                 if (isValidUrl(query)) {
-                    e.preventDefault();
                     location.assign(query);
                 } else {
-                    await addToSearchHistory(query);
+                    try {
+                        await addToSearchHistory(query);
+                        await chrome.runtime.sendMessage({ action: "performSearch", query: query, disposition: "CURRENT_TAB" });
+                    } catch (err) {
+                        console.error("Error sending search message:", err);
+                    }
                 }
                 setTimeout(() => {
                     input.value = "";
@@ -1656,7 +1677,15 @@ async function initialize() {
                         if (isValidUrl(query)) {
                             location.assign(query);
                         } else {
-                            searchInput.form.submit();
+                            try {
+                                await chrome.runtime.sendMessage({
+                                    action: "performSearch",
+                                    query: query,
+                                    disposition: "CURRENT_TAB",
+                                });
+                            } catch (err) {
+                                console.error("Error sending search message:", err);
+                            }
                         }
                     }
                 } else if (e.key === "Escape") {

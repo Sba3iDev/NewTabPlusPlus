@@ -3,7 +3,7 @@
     "name": "NewTab++",
     "version": "1.0.0",
     "description": "Enhance your New Tab page with customizable shortcuts",
-    "permissions": ["storage", "contextMenus", "activeTab"],
+    "permissions": ["storage", "contextMenus", "activeTab", "search"],
     "host_permissions": ["https://suggestqueries.google.com/*", "https://favicon.im/*"],
     "action": {
         "default_popup": "src/popup.html",
